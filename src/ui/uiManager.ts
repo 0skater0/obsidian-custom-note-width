@@ -44,7 +44,7 @@ export default class UIManager
 			slider = domElementManager.querySelector(idSelector(DOM_IDENTIFIERS.SLIDER)) as HTMLInputElement;
 			if (!slider)
 			{
-				console.error("Slider-Element konnte nicht gefunden werden.");
+				console.error("Slider element could not be found.");
 				return null;
 			}
 		}
@@ -63,7 +63,7 @@ export default class UIManager
 			textField = domElementManager.querySelector(idSelector(DOM_IDENTIFIERS.SLIDER_VALUE)) as HTMLInputElement;
 			if (!textField)
 			{
-				console.error("Slider-Textfeld-Element konnte nicht gefunden werden.");
+				console.error("Text field element could not be found.");
 				return null;
 			}
 		}

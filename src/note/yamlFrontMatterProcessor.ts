@@ -1,6 +1,5 @@
 import { App } from "obsidian";
-import * as jsyaml from "js-yaml";
-import { YAML_END, YAML_FRONTMATTER_REGEX, YAML_NEWLINE, YAML_START } from "src/utility/constants";
+import { YAML_FRONTMATTER_REGEX } from "src/utility/constants";
 import { getActiveMarkdownView } from "src/utility/utilities";
 import ProgressBarModal from "src/modals/progressBarModal";
 
@@ -17,59 +16,45 @@ export default class YamlFrontMatterProcessor
 	constructor(private app: App) { }
 
 	/**
-	 * Replaces a specified YAML key in all notes with a new key.
-	 * @param oldKey - The original key to be replaced.
-	 * @param newKey - The new key to replace the original with.
-	 */
+ * Replaces a specified YAML key in all notes with a new key.
+ * @param oldKey - The original key to be replaced.
+ * @param newKey - The new key to replace the original with.
+ */
 	public async replaceYamlKeyInAllNotes(oldKey: string, newKey: string, progressBarModal: ProgressBarModal): Promise<void>
 	{
 		const files = this.app.vault.getMarkdownFiles();
-
 		const incrementValue = 100 / files.length;
 
 		for (const file of files)
 		{
-
 			if (progressBarModal.isCancelled)
 			{
 				break;
 			}
 
-			const content = await this.app.vault.read(file);
-			const frontMatterMatch = content.match(YAML_FRONTMATTER_REGEX);
-
-			if (frontMatterMatch && frontMatterMatch[1])
+			await this.app.fileManager.processFrontMatter(file, (frontMatter) =>
 			{
-				let parsedYaml: Record<string, unknown> = {};
-
-				try
+				if (oldKey in frontMatter)
 				{
-					parsedYaml = jsyaml.load(frontMatterMatch[1]) as Record<string, unknown>;
-				} catch (error)
-				{
-					console.error(`Failed to parse YAML: ${error}`);
+					frontMatter[newKey] = frontMatter[oldKey];
+					delete frontMatter[oldKey];
 				}
-
-				// If the old key exists in the YAML content
-				if (oldKey in parsedYaml)
-				{
-					// Replace the old key with the new key while preserving the value
-					parsedYaml[newKey] = parsedYaml[oldKey];
-					delete parsedYaml[oldKey];
-
-					// Update the content of the note with the new YAML frontmatter
-					const newYamlFrontMatter = YAML_START + jsyaml.dump(parsedYaml).trim() + YAML_END;
-					const restOfContent = content.replace(YAML_FRONTMATTER_REGEX, "");
-					const updatedContent = newYamlFrontMatter + YAML_NEWLINE + restOfContent.trimStart();
-					await this.app.vault.modify(file, updatedContent);
-				}
-			}
+			});
 
 			// Update the progress bar after processing each note
 			progressBarModal.incrementProgress(incrementValue);
 		}
 	}
 
+	/**
+	 * Update the specified YAML key's value in all Markdown files within the vault.
+	 * @async
+	 * @param {string} yamlKey - The key in the YAML front matter to update.
+	 * @param {number} newValue - The new value to set for the specified YAML key.
+	 * @param {ProgressBarModal} progressBarModal - The progress bar modal to indicate the progress of the operation.
+	 * @returns {Promise<void>} - Resolves when all files have been processed.
+	 * @throws Will throw an error if the operation fails.
+	 */
 	public async updateAllYamlValues(yamlKey: string, newValue: number, progressBarModal: ProgressBarModal): Promise<void> 
 	{
 		const files = this.app.vault.getMarkdownFiles();
@@ -82,34 +67,13 @@ export default class YamlFrontMatterProcessor
 				break;
 			}
 
-			const content = await this.app.vault.read(file);
-			const frontMatterMatch = content.match(YAML_FRONTMATTER_REGEX);
-
-			if (frontMatterMatch && frontMatterMatch[1]) 
+			await this.app.fileManager.processFrontMatter(file, (frontMatter) =>
 			{
-				let parsedYaml: Record<string, unknown> = {};
-
-				try 
+				if (yamlKey in frontMatter)
 				{
-					parsedYaml = jsyaml.load(frontMatterMatch[1]) as Record<string, unknown>;
+					frontMatter[yamlKey] = newValue;
 				}
-				catch (error) 
-				{
-					console.error(`Failed to parse YAML: ${error}`);
-				}
-
-				// If the key exists in the YAML content
-				if (yamlKey in parsedYaml) 
-				{
-					// Update the value of the key
-					parsedYaml[yamlKey] = newValue;
-
-					// Update the content of the note with the new YAML frontmatter
-					const newYamlFrontMatter = YAML_START + jsyaml.dump(parsedYaml).trim() + YAML_END;
-					const restOfContent = content.replace(YAML_FRONTMATTER_REGEX, "");
-					await this.app.vault.modify(file, newYamlFrontMatter + YAML_NEWLINE + restOfContent.trim());
-				}
-			}
+			});
 
 			progressBarModal.incrementProgress(incrementValue);
 		}
@@ -155,12 +119,19 @@ export default class YamlFrontMatterProcessor
 	 * @param {string} key - The key to retrieve its value from the YAML front matter.
 	 * @returns {any} The value of the specified key or null if not found.
 	 */
-	public getYamlValue(key: string): any
+	public async getYamlValue(key: string): Promise<any>
 	{
-		const yamlContent = this.extractYamlFromNote();
-		if (!yamlContent) return null;
-		const parsedYaml = jsyaml.load(yamlContent) as Record<string, unknown>;
-		return parsedYaml[key];
+		const activeView = getActiveMarkdownView(this.app);
+		if (!activeView || !activeView.file) return null;
+
+		let value = null;
+
+		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter) =>
+		{
+			value = frontMatter[key];
+		});
+
+		return value;
 	}
 
 	/**
@@ -169,27 +140,15 @@ export default class YamlFrontMatterProcessor
 	 * @param {string} key - The key to set its value.
 	 * @param {any} value - The value to set for the specified key.
 	 */
-	public setYamlValue(key: string, value: any): void
+	public async setYamlValue(key: string, value: any): Promise<void>
 	{
-		const content = this.getActiveNoteContent();
 		const activeView = getActiveMarkdownView(this.app);
-		if (!content || !activeView) return;
+		if (!activeView || !activeView.file) return;
 
-		const rawYaml = this.extractYamlFromNote();
-		let parsedYaml: Record<string, unknown>;
-		if (rawYaml)
+		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter) =>
 		{
-			parsedYaml = jsyaml.load(rawYaml) as Record<string, unknown>;
-		} else
-		{
-			parsedYaml = {};
-		}
-		parsedYaml[key] = value;
-
-		const newYamlFrontMatter = YAML_START + jsyaml.dump(parsedYaml).trim() + YAML_END;
-		const restOfContent = content.replace(YAML_FRONTMATTER_REGEX, "");
-		const newContent = newYamlFrontMatter + YAML_NEWLINE + restOfContent.trimStart();
-		activeView.editor.setValue(newContent);
+			frontMatter[key] = value;
+		});
 	}
 
 	/**
@@ -197,27 +156,15 @@ export default class YamlFrontMatterProcessor
 	 * @public
 	 * @param {string} key - The key to remove from the YAML front matter.
 	 */
-	public removeYamlKey(key: string): void
+	public async removeYamlKey(key: string): Promise<void>
 	{
-		const content = this.getActiveNoteContent();
 		const activeView = getActiveMarkdownView(this.app);
-		if (!content || !activeView) return;
+		if (!activeView || !activeView.file) return;
 
-		const rawYaml = this.extractYamlFromNote();
-		let parsedYaml: Record<string, unknown>;
-		if (rawYaml)
+		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter) =>
 		{
-			parsedYaml = jsyaml.load(rawYaml) as Record<string, unknown>;
-		} else
-		{
-			parsedYaml = {};
-		}
-		delete parsedYaml[key];
-
-		const newYamlFrontMatter = YAML_START + jsyaml.dump(parsedYaml).trim() + YAML_END;
-		const restOfContent = content.replace(YAML_FRONTMATTER_REGEX, "");
-		const newContent = newYamlFrontMatter + YAML_NEWLINE + restOfContent.trimStart();
-		activeView.editor.setValue(newContent);
+			delete frontMatter[key];
+		});
 	}
 
 	/**
@@ -226,9 +173,19 @@ export default class YamlFrontMatterProcessor
 	 * @param {string} key - The key to check for its existence.
 	 * @returns {boolean} True if the key exists, otherwise false.
 	 */
-	public hasYamlKey(key: string): boolean
+	public async hasYamlKey(key: string): Promise<boolean>
 	{
-		return this.getYamlValue(key) !== undefined;
+		const activeView = getActiveMarkdownView(this.app);
+		if (!activeView || !activeView.file) return false;
+
+		let exists = false;
+
+		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter) =>
+		{
+			exists = key in frontMatter;
+		});
+
+		return exists;
 	}
 
 	/**
@@ -237,28 +194,37 @@ export default class YamlFrontMatterProcessor
 	 * @param {string} key - The key to check.
 	 * @returns {boolean} True if the key is the only one in the YAML front matter, otherwise false.
 	 */
-	public isOnlyYamlKey(key: string): boolean
+	public async isOnlyYamlKey(key: string): Promise<boolean>
 	{
-		const yamlContent = this.extractYamlFromNote();
-		if (!yamlContent) return false;
+		const activeView = getActiveMarkdownView(this.app);
+		if (!activeView || !activeView.file) return false;
 
-		const parsedYaml = jsyaml.load(yamlContent) as Record<string, unknown>;
-		return Object.keys(parsedYaml).length === 1 && parsedYaml[key] !== undefined;
+		let isOnly = false;
+
+		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter) =>
+		{
+			isOnly = Object.keys(frontMatter).length === 1 && frontMatter[key] !== undefined;
+		});
+
+		return isOnly;
 	}
 
 	/**
 	 * Removes the entire YAML front matter from the active note.
 	 * @public
 	 */
-	public removeYamlFrontMatter(): void
+	public async removeYamlFrontMatter(): Promise<void>
 	{
 		const activeView = getActiveMarkdownView(this.app);
-		if (!activeView) return;
+		if (!activeView || !activeView.file) return;
 
-		const editor = activeView.editor;
-		const content = editor.getValue();
-
-		const newYamlFrontMatter = content.replace(YAML_FRONTMATTER_REGEX, '').trim();
-		editor.setValue(newYamlFrontMatter);
+		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter) =>
+		{
+			for (const key of Object.keys(frontMatter))
+			{
+				delete frontMatter[key];
+			}
+		});
 	}
+
 }

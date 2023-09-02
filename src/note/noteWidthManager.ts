@@ -1,7 +1,7 @@
 import { App } from "obsidian";
 import CustomNoteWidth from "src/main";
 import ProgressBarModal from "src/modals/progressBarModal";
-import { DOM_IDENTIFIERS, NOTE_ID_KEY, PRIORITYLIST, PROGRESSBAR_MODAL_VALUE_TITLE_TEXT } from "src/utility/constants";
+import { DOM_IDENTIFIERS, NOTE_ID_KEY, PRIORITY_LIST, PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT } from "src/utility/constants";
 import { calculateNoteWidth, getActiveEditorDiv, getEditorMode, validateWidth } from "src/utility/utilities";
 import UUIDGenerator from "src/utility/uuidGenerator";
 
@@ -75,7 +75,7 @@ export default class NoteWidthManager
 		if (isSaveWidthIndividuallyEnabled && isYAMLWidthEnabled)
 		{
 			this.plugin.database.updateAllNotesWidth(width);
-			const progressBarModal = new ProgressBarModal(this.app, PROGRESSBAR_MODAL_VALUE_TITLE_TEXT);
+			const progressBarModal = new ProgressBarModal(this.app, PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT);
 			progressBarModal.display();
 
 			await this.plugin.yamlFrontMatterProcessor.updateAllYamlValues(CUSTOM_WIDTH_YAML_KEY, noteWidth, progressBarModal);
@@ -84,7 +84,7 @@ export default class NoteWidthManager
 		}
 		else if (isYAMLWidthEnabled)
 		{
-			const progressBarModal = new ProgressBarModal(this.app, PROGRESSBAR_MODAL_VALUE_TITLE_TEXT);
+			const progressBarModal = new ProgressBarModal(this.app, PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT);
 			progressBarModal.display();
 
 			await this.plugin.yamlFrontMatterProcessor.updateAllYamlValues(CUSTOM_WIDTH_YAML_KEY, noteWidth, progressBarModal);
@@ -123,14 +123,14 @@ export default class NoteWidthManager
 		const yamlProcessor = this.plugin.yamlFrontMatterProcessor;
 		const isSaveWidthIndividuallyEnabled = this.plugin.settingsManager.getEnableSaveWidthIndividually();
 		const isYAMLWidthEnabled = this.plugin.settingsManager.getEnableYAMLWidth();
-		const hasNoteID = yamlProcessor.hasYamlKey(NOTE_ID_KEY);
-		const hasCustomKey = yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY);
+		const hasNoteID = await yamlProcessor.hasYamlKey(NOTE_ID_KEY);
+		const hasCustomKey = await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY);
 
 		if (isSaveWidthIndividuallyEnabled && isYAMLWidthEnabled)
 		{
 			if (hasNoteID)
 			{
-				const noteID = yamlProcessor.getYamlValue(NOTE_ID_KEY);
+				const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
 
 				if (this.plugin.database.noteExists(noteID))
 				{
@@ -155,7 +155,7 @@ export default class NoteWidthManager
 		{
 			if (hasNoteID)
 			{
-				const noteID = yamlProcessor.getYamlValue(NOTE_ID_KEY);
+				const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
 
 				if (this.plugin.database.noteExists(noteID))
 				{
@@ -198,7 +198,6 @@ export default class NoteWidthManager
 		const CUSTOM_WIDTH_YAML_KEY = this.plugin.settingsManager.getYAMLKey();
 		const CURRENT_PRIORITY = this.plugin.settingsManager.getCurrentPriority();
 
-
 		if (!isUserInputTriggered)
 		{
 			if (!isSaveWidthIndividuallyEnabled && !isYAMLWidthEnabled)
@@ -215,11 +214,11 @@ export default class NoteWidthManager
 					return;
 				}
 
-				if (CURRENT_PRIORITY === PRIORITYLIST.SAVED_NOTE_WIDTH)
+				if (CURRENT_PRIORITY === PRIORITY_LIST.SAVED_NOTE_WIDTH)
 				{
-					if (yamlProcessor.hasYamlKey(NOTE_ID_KEY))
+					if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
 					{
-						const noteID = yamlProcessor.getYamlValue(NOTE_ID_KEY);
+						const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
 
 						if (database.noteExists(noteID))
 						{
@@ -233,7 +232,7 @@ export default class NoteWidthManager
 						}
 						else
 						{
-							if (yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
+							if (await yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
 							{
 								yamlProcessor.removeYamlFrontMatter();
 							}
@@ -246,14 +245,14 @@ export default class NoteWidthManager
 							return;
 						}
 					}
-					else if (yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
+					else if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
 					{
-						let width = yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
+						let width = await yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
 						if (width !== null)
 						{
 							width = validateWidth(width);
 							yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, width);
-							uiManager.updateUIAndEditorWidth(width);
+							uiManager.updateUIAndEditorWidth(await width);
 							return;
 						}
 					} else
@@ -262,22 +261,22 @@ export default class NoteWidthManager
 						return;
 					}
 				}
-				else if (CURRENT_PRIORITY === PRIORITYLIST.YAML_NOTE_WIDTH)
+				else if (CURRENT_PRIORITY === PRIORITY_LIST.YAML_NOTE_WIDTH)
 				{
-					if (yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
+					if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
 					{
-						let width = yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
+						let width = await yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
 						if (width !== null)
 						{
 							width = validateWidth(width);
 							yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, width);
-							uiManager.updateUIAndEditorWidth(width);
+							uiManager.updateUIAndEditorWidth(await width);
 							return;
 						}
 					}
-					else if (yamlProcessor.hasYamlKey(NOTE_ID_KEY))
+					else if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
 					{
-						const noteID = yamlProcessor.getYamlValue(NOTE_ID_KEY);
+						const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
 
 						if (database.noteExists(noteID))
 						{
@@ -291,7 +290,7 @@ export default class NoteWidthManager
 						}
 						else
 						{
-							if (yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
+							if (await yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
 							{
 								yamlProcessor.removeYamlFrontMatter();
 							}
@@ -326,7 +325,7 @@ export default class NoteWidthManager
 				}
 				else
 				{
-					const noteID = yamlProcessor.getYamlValue(NOTE_ID_KEY);
+					const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
 
 					if (database.noteExists(noteID))
 					{
@@ -340,7 +339,7 @@ export default class NoteWidthManager
 					}
 					else
 					{
-						if (yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
+						if (await yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
 						{
 							yamlProcessor.removeYamlFrontMatter();
 						}
@@ -369,18 +368,17 @@ export default class NoteWidthManager
 				}
 				else
 				{
-					let width = yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
+					let width = await yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
 					if (width !== null)
 					{
 						width = validateWidth(width);
 						yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, width);
-						uiManager.updateUIAndEditorWidth(width);
+						uiManager.updateUIAndEditorWidth(await width);
 						return;
 					}
 				}
 			}
 		}
-		// 2.0
 		else
 		{
 			this.plugin.eventHandler.isUserInputTriggered = false;
@@ -395,50 +393,77 @@ export default class NoteWidthManager
 			{
 				if (!yamlProcessor.hasYamlFrontMatter())
 				{
-					database.addNote(UUIDGenerator.getUniqueUUID(database), currentWidthPercentage);
-					yamlProcessor.setYamlValue(NOTE_ID_KEY, UUIDGenerator.getUniqueUUID(database));
-					uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-					return;
+					if (CURRENT_PRIORITY === PRIORITY_LIST.SAVED_NOTE_WIDTH)
+					{
+						const UUID = UUIDGenerator.getUniqueUUID(database);
+						database.addNote(UUID, currentWidthPercentage);
+						yamlProcessor.setYamlValue(NOTE_ID_KEY, UUID);
+						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
+						return;
+					}
+					else if (CURRENT_PRIORITY === PRIORITY_LIST.YAML_NOTE_WIDTH)
+					{
+						yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
+						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
+						return;
+					}
 				}
 				else
 				{
-					if (yamlProcessor.hasYamlKey(NOTE_ID_KEY))
+					if (!yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY) && !yamlProcessor.hasYamlKey(NOTE_ID_KEY))
 					{
-						const noteID = yamlProcessor.getYamlValue(NOTE_ID_KEY);
+						if (CURRENT_PRIORITY === PRIORITY_LIST.SAVED_NOTE_WIDTH)
+						{
+							const UUID = UUIDGenerator.getUniqueUUID(database);
+							yamlProcessor.setYamlValue(NOTE_ID_KEY, UUID);
+							database.addNote(UUID, currentWidthPercentage);
+							uiManager.updateUIAndEditorWidth(currentWidthPercentage);
+						}
+						else if (CURRENT_PRIORITY === PRIORITY_LIST.YAML_NOTE_WIDTH)
+						{
+							yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
+							uiManager.updateUIAndEditorWidth(currentWidthPercentage);
+						}
+
+						return;
+					}
+
+					if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
+					{
+						const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
 						database.addNote(noteID, currentWidthPercentage);
 						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
 					}
-					else
-					{
-						yamlProcessor.setYamlValue(NOTE_ID_KEY, UUIDGenerator.getUniqueUUID(database));
-						database.addNote(UUIDGenerator.getUniqueUUID(database), currentWidthPercentage);
-					}
 
-					if (yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
+					if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
 					{
 						yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
+						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
 					}
+
+					return;
 				}
 			}
 			else if (isSaveWidthIndividuallyEnabled)
 			{
-				if (yamlProcessor.hasYamlKey(NOTE_ID_KEY))
+				if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
 				{
-					const noteID = yamlProcessor.getYamlValue(NOTE_ID_KEY);
+					const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
 					database.addNote(noteID, currentWidthPercentage);
 					uiManager.updateUIAndEditorWidth(currentWidthPercentage);
 					return;
 				}
 				else
 				{
-					yamlProcessor.setYamlValue(NOTE_ID_KEY, UUIDGenerator.getUniqueUUID(database));
-					database.addNote(UUIDGenerator.getUniqueUUID(database), currentWidthPercentage);
+					const UUID = UUIDGenerator.getUniqueUUID(database);
+					yamlProcessor.setYamlValue(NOTE_ID_KEY, UUID);
+					database.addNote(UUID, currentWidthPercentage);
 					return;
 				}
 			}
 			else if (isYAMLWidthEnabled)
 			{
-				if (yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
+				if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
 				{
 					yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
 					return;

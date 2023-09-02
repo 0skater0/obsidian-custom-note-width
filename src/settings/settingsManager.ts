@@ -1,5 +1,5 @@
 import CustomNoteWidth from "src/main";
-import { PRIORITYLIST } from "src/utility/constants";
+import { PRIORITY_LIST } from "src/utility/constants";
 
 /**
  * Interface representing the settings structure for CustomNoteWidth.
@@ -36,7 +36,7 @@ export default class SettingsManager
 		enableYAMLWidth: true,
 		enableSaveWidthIndividually: true,
 		enableChangeDefaultNoteWidth: false,
-		priorityList: [PRIORITYLIST.SAVED_NOTE_WIDTH, PRIORITYLIST.YAML_NOTE_WIDTH]
+		priorityList: [PRIORITY_LIST.SAVED_NOTE_WIDTH, PRIORITY_LIST.YAML_NOTE_WIDTH]
 	};
 
 	/**
@@ -206,8 +206,6 @@ export default class SettingsManager
 	 */
 	public async resetEditorWidth(): Promise<void>
 	{
-		//this.settings.widthPercentage = 36;
 		this.plugin.noteWidthManager.removeNoteWidthEditorStyle();
-		//await this.plugin.noteWidthManager.updateNoteWidthEditorStyle(this.settings.widthPercentage);
 	}
 }

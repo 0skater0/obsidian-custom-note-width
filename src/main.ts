@@ -46,10 +46,10 @@ export default class CustomNoteWidth extends Plugin
 		this.settingsTab = new CustomNoteWidthSettingTab(this.app, this);
 		this.addSettingTab(this.settingsTab);
 
-		// Initialise the Database
+		// Initialize the Database
 		if (this.settingsManager.getEnableSaveWidthIndividually())
 		{
-			this.database = new LokiDatabase(getDatabasePath(this.app, DATABASE_FILENAME));
+			this.database = new LokiDatabase(getDatabasePath(this.app, this, DATABASE_FILENAME));
 			await this.database.init();
 		}
 
@@ -89,7 +89,7 @@ export default class CustomNoteWidth extends Plugin
 
 	/**
 	 * This function is called when the plugin is unloaded.
-	 * It handles the cleanup and deregistration of various components.
+	 * It handles the cleanup of various components.
 	 * @returns {Promise<void>} A promise that resolves when the unloading process is completed.
 	 */
 	async onunload(): Promise<void>

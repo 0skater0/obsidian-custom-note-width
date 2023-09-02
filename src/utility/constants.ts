@@ -14,21 +14,6 @@ export const YAML_FRONTMATTER_REGEX = new RegExp(/^---\n([\s\S]*?)\n---/);
 export const DEFAULT_NOTE_WIDTH = 36;
 
 /**
- * Directory name for Obsidian's configuration and plugins.
- */
-export const OBSIDIAN_DIR = ".obsidian";
-
-/**
- * Directory name where Obsidian stores plugins.
- */
-export const PLUGINS_DIR = "plugins";
-
-/**
- * Directory name specific to this plugin.
- */
-export const PLUGIN_DIR_NAME = "obsidian-custom-note-width";
-
-/**
  * Human-readable name of the plugin.
  */
 export const PLUGIN_NAME = "Custom Note Width";
@@ -86,19 +71,19 @@ export const APPLY_BUTTON_TEXT = "Apply";
 /**
  * Title for the modal used when updating YAML frontmatter keys in all notes.
  */
-export const PROGRESSBAR_MODAL_KEY_TITLE_TEXT = "Changing all YAML-Frontmatter keys...";
+export const PROGRESS_BAR_MODAL_KEY_TITLE_TEXT = "Changing all YAML-Frontmatter keys...";
 
 /**
  * Title for the modal used when updating the value of all YAML frontmatter keys in all notes.
  */
-export const PROGRESSBAR_MODAL_VALUE_TITLE_TEXT = "Changing the value for all YAML-Frontmatter's...";
+export const PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT = "Changing the value for all YAML-Frontmatter's...";
 
 /**
  * List of priority checks performed to determine the width of a note.
  * @property {string} SAVED_NOTE_WIDTH - Check for a saved note width in the database.
  * @property {string} YAML_NOTE_WIDTH - Check for a width specified in the note's YAML frontmatter.
  */
-export const PRIORITYLIST = {
+export const PRIORITY_LIST = {
 	SAVED_NOTE_WIDTH: "Check for saved note width",
 	YAML_NOTE_WIDTH: "Check for YAML-Frontmatter width"
 };

@@ -1,7 +1,7 @@
-import { App, Notice, WorkspaceLeaf } from "obsidian";
+import { App, Notice, WorkspaceLeaf, debounce } from "obsidian";
 import CustomNoteWidth from "src/main";
 import { NOTICES } from "src/utility/constants";
-import { debounce, getCurrentWindowState, hasResized, isActiveLeafMarkdown } from "src/utility/utilities";
+import { getCurrentWindowState, hasResized, isActiveLeafMarkdown } from "src/utility/utilities";
 import { CONFIG } from "src/utility/config";
 
 /**
@@ -9,7 +9,7 @@ import { CONFIG } from "src/utility/config";
  */
 export default class EventHandler
 {
-	updateTimeout: NodeJS.Timeout;
+	updateTimeout: number;
 	previousWindowState: { width: number; height: number; };
 	public isUserInputTriggered: boolean = false;
 
@@ -29,7 +29,7 @@ export default class EventHandler
 	}
 
 	/**
-	 * Registers event handlers related to the plugin.
+	 * Register event handlers related to the plugin.
 	 */
 	public registerEventHandlers(): void
 	{
@@ -39,7 +39,7 @@ export default class EventHandler
 	}
 
 	/**
-	 * Deregisters event handlers related to the plugin.
+	 * Deregister event handlers related to the plugin.
 	 */
 	public deregisterEventHandlers(): void
 	{
@@ -228,7 +228,7 @@ export default class EventHandler
 			{
 				this.isUserInputTriggered = true;
 				if (this.updateTimeout) clearTimeout(this.updateTimeout);
-				this.updateTimeout = setTimeout(async () =>
+				this.updateTimeout = window.setTimeout(async () =>
 				{
 					await this.plugin.noteWidthManager.refreshNoteWidth(this.isUserInputTriggered);
 				}, 250);
@@ -250,11 +250,11 @@ export default class EventHandler
 
 			this.plugin.noteWidthManager.updateNoteWidthEditorStyle(value);
 
-			if (this.plugin.settingsManager.getEnableSaveWidthIndividually())
+			if (this.plugin.settingsManager.getEnableSaveWidthIndividually() || this.plugin.settingsManager.getEnableYAMLWidth())
 			{
 				this.isUserInputTriggered = true;
 				if (this.updateTimeout) clearTimeout(this.updateTimeout);
-				this.updateTimeout = setTimeout(async () =>
+				this.updateTimeout = window.setTimeout(async () =>
 				{
 					await this.plugin.noteWidthManager.refreshNoteWidth(this.isUserInputTriggered);
 				}, 250);
@@ -287,11 +287,11 @@ export default class EventHandler
 
 			this.plugin.noteWidthManager.updateNoteWidthEditorStyle(value);
 
-			if (this.plugin.settingsManager.getEnableSaveWidthIndividually())
+			if (this.plugin.settingsManager.getEnableSaveWidthIndividually() || this.plugin.settingsManager.getEnableYAMLWidth())
 			{
 				this.isUserInputTriggered = true;
 				if (this.updateTimeout) clearTimeout(this.updateTimeout);
-				this.updateTimeout = setTimeout(async () =>
+				this.updateTimeout = window.setTimeout(async () =>
 				{
 					await this.plugin.noteWidthManager.refreshNoteWidth(this.isUserInputTriggered);
 				}, 250);

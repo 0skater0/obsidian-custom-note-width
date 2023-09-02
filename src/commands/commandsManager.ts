@@ -87,11 +87,11 @@ export default class CommandsManager
 	/**
 	 * Callback for command execution. Opens the NoteWidthModal and then executes the command action.
 	 * @param commandAction - The action to be executed by the command.
-	 * @param modalTitel - The title of the modal.
+	 * @param modalTitle - The title of the modal.
 	 */
-	private commandCallback(commandAction: (arg: number) => void, modalTitel: string): void
+	private commandCallback(commandAction: (arg: number) => void, modalTitle: string): void
 	{
-		new NoteWidthModal(this.plugin.app, (number) => { commandAction(number); }, modalTitel).open();
+		new NoteWidthModal(this.plugin.app, (number) => { commandAction(number); }, modalTitle).open();
 	}
 
 	/**

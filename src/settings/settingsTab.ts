@@ -3,7 +3,7 @@ import type CustomNoteWidth from "src/main";
 import DonationButton from "src/settings/donationButton";
 import YamlFrontMatterProcessor from "src/note/yamlFrontMatterProcessor";
 import ProgressBarModal from "src/modals/progressBarModal";
-import { DATABASE_FILENAME, DOM_IDENTIFIERS, NOTICES, PROGRESSBAR_MODAL_KEY_TITLE_TEXT } from "src/utility/constants";
+import { DATABASE_FILENAME, DOM_IDENTIFIERS, NOTICES, PROGRESS_BAR_MODAL_KEY_TITLE_TEXT } from "src/utility/constants";
 import LokiDatabase from "src/utility/lokiDatabase";
 import { getDatabasePath } from "src/utility/utilities";
 
@@ -29,7 +29,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 
 	public display(): void
 	{
-		let updateTimeout: NodeJS.Timeout;
+		let updateTimeout: number;
 
 		// Get the container element for the settings modal.
 		const { containerEl } = this;
@@ -140,7 +140,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 
 					if (value && !this.plugin.database)
 					{
-						this.plugin.database = new LokiDatabase(getDatabasePath(this.plugin.app, DATABASE_FILENAME));
+						this.plugin.database = new LokiDatabase(getDatabasePath(this.plugin.app, this.plugin, DATABASE_FILENAME));
 						await this.plugin.database.init();
 					}
 
@@ -241,10 +241,10 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 			}
 		}
 
-		// Toggle to enable the option to retrieve note width from the YAML Frontmatter.
+		// Toggle to enable the option to retrieve note width from the YAML front matter.
 		new Setting(containerEl)
-			.setName("Enable custom width via YAML-Frontmatter")
-			.setDesc("Enable the option to retrieve note width from the YAML Frontmatter.")
+			.setName("Enable custom width via YAML front matter")
+			.setDesc("Enable the option to retrieve note width from the YAML front matter.")
 			.addToggle((cb: ToggleComponent) =>
 			{
 				cb.setValue(this.plugin.settingsManager.getEnableYAMLWidth());
@@ -262,8 +262,8 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 		if (this.plugin.settingsManager.getEnableYAMLWidth())
 		{
 			new Setting(containerEl)
-				.setName("YAML-Frontmatter key for custom width")
-				.setDesc("Specify the YAML Frontmatter key to use for setting the custom width of the editor. If a note includes this key in its YAML Frontmatter, the specified value will be used as the editor's width.")
+				.setName("YAML front matter key for custom width")
+				.setDesc("Specify the YAML front matter key to use for setting the custom width of the editor. If a note includes this key in its YAML front matter, the specified value will be used as the editor's width.")
 				.addText((text) =>
 				{
 					text.setPlaceholder("custom-width")
@@ -273,7 +273,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 							// Reset the timer on every change
 							if (updateTimeout) clearTimeout(updateTimeout);
 
-							updateTimeout = setTimeout(async () =>
+							updateTimeout = window.setTimeout(async () =>
 							{
 								const oldKey = this.plugin.settingsManager.getYAMLKey();
 
@@ -284,7 +284,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 
 								if (oldKey !== value)
 								{
-									const progressBarModal = new ProgressBarModal(this.app, PROGRESSBAR_MODAL_KEY_TITLE_TEXT);
+									const progressBarModal = new ProgressBarModal(this.app, PROGRESS_BAR_MODAL_KEY_TITLE_TEXT);
 									progressBarModal.display();
 
 									// Call the method to replace old key with new key in all notes

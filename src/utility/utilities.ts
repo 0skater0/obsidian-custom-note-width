@@ -1,6 +1,7 @@
 import { App, FileSystemAdapter, MarkdownView } from "obsidian";
 import * as path from "path";
-import { DOM_IDENTIFIERS, OBSIDIAN_DIR, PLUGINS_DIR, PLUGIN_DIR_NAME } from "src/utility/constants";
+import CustomNoteWidth from "src/main";
+import { DOM_IDENTIFIERS } from "src/utility/constants";
 
 /**
  * Retrieves the absolute path to the vault.
@@ -22,9 +23,9 @@ export function getAbsoluteVaultPath(app: App): string
  * @param app - The Obsidian app instance.
  * @returns The absolute plugin directory path.
  */
-export function getAbsolutePluginPath(app: App): string
+export function getAbsolutePluginPath(app: App, plugin: CustomNoteWidth): string
 {
-	return path.join(getAbsoluteVaultPath(app), OBSIDIAN_DIR, PLUGINS_DIR, PLUGIN_DIR_NAME);
+	return path.join(getAbsoluteVaultPath(app), plugin.manifest.dir as string);
 }
 
 /**
@@ -33,28 +34,9 @@ export function getAbsolutePluginPath(app: App): string
  * @param filename - The database filename.
  * @returns The absolute path to the database file.
  */
-export function getDatabasePath(app: App, filename: string): string
+export function getDatabasePath(app: App, plugin: CustomNoteWidth, filename: string): string
 {
-	return path.join(getAbsolutePluginPath(app), filename);
-}
-
-/**
- * Creates a debounced version of the provided function.
- * @param func - The function to debounce.
- * @param wait - Delay in milliseconds.
- * @returns The debounced function.
- */
-export function debounce<T extends any[]>(func: (...args: T) => void, wait: number): (...args: T) => void
-{
-	let timeout: ReturnType<typeof setTimeout> | null;
-	return (...args: T) =>
-	{
-		if (timeout)
-		{
-			clearTimeout(timeout);
-		}
-		timeout = setTimeout(() => func(...args), wait);
-	};
+	return path.join(getAbsolutePluginPath(app, plugin), filename);
 }
 
 /**

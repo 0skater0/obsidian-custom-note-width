@@ -17,8 +17,9 @@ export default class ProgressBarModal extends Modal
 	/**
 	 * Constructs a new ProgressBarModal instance.
 	 * @param app - The Obsidian application instance.
+	 * @param title - String which represents the modal title
 	 */
-	constructor(app: App, private titel: string)
+	constructor(app: App, private title: string)
 	{
 		super(app);
 		this.progress = 0;
@@ -83,7 +84,7 @@ export default class ProgressBarModal extends Modal
 	 */
 	public onOpen(): void
 	{
-		this.titleEl.setText(this.titel);
+		this.titleEl.setText(this.title);
 		const closeEl = this.containerEl.querySelector(".modal-close-button");
 		if (closeEl) closeEl.remove();
 

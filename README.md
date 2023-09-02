@@ -5,10 +5,10 @@ All these following options ensure that users have a tailored experience, making
 To make this task more intuitive and adaptable to your preferences, the plugin offers several methods:
 
 - Employ a straightforward slider or textbox situated in the status bar for quick and visual adjustments.
-- For users who prefer to work with YAML Front Matter there is an option to set a custom width through YAML, allowing you to maintain specific formatting or structures in your notes.
+- For users who prefer to work with YAML front matter there is an option to set a custom width through YAML, allowing you to maintain specific formatting or structures in your notes.
 - Integrated commands have been added, which can be executed directly within the Obsidian interface. This is especially handy for users who prefer quick actions or are accustomed to using keyboard shortcuts, offering a seamless way to modify the line width without diving into settings or codes.
 
-![Demo GIF](./demo.gif)
+![Demo GIF](/images/demo.gif)
 
 ## Features
 
@@ -28,9 +28,9 @@ With this plugin, you can easily make real-time adjustments to the width of note
 
 - Enable or disable to adjust width on a note-by-note basis
 - Enable or disable to adjust the default note width
-- Enable or disable to adjust note width via YAML Front Matter
-- When both "Change width for each note" and "Enable custom width via YAML-Frontmatter" are active, you will be able to choose the order of execution via this priority list:
-     It first checks the saved note-by-note width setting; if unspecified, it then looks to the YAML Front Matter.
+- Enable or disable to adjust note width via YAML front matter
+- When both "Change width for each note" and "Enable custom width via YAML front matter" are active, you will be able to choose the order of execution via this priority list:
+     It first checks the saved note-by-note width setting; if unspecified, it then looks to the YAML front matter.
 
 ### Style Settings
 
@@ -38,9 +38,13 @@ With this plugin, you can easily make real-time adjustments to the width of note
 - Enable or disable the textbox
 - Adjust the slider width
 
+## Installation
+
+The plugin can be found in the Community Plugins directory which can be accessed from the Settings pane under Third Party Plugins.
+
 ## Manual installation
 
-1. Download obsidian-custom-note-width.zip located at [latest release](https://github.com/0skater0/obsidian-custom-note-width/releases)
+1. Download custom-note-width.zip located at [latest release](https://github.com/0skater0/obsidian-custom-note-width/releases)
 2. Extract the obsidian-custom-note-width folder from the zip to your vault's plugins <br> folder: `<vault>/.obsidian/plugins/`  Note: On some machines the `.obsidian` folder may be hidden. On MacOS you should be able to press `Command+Shift+Dot` to show the folder in Finder.
 3. Reload Obsidian
 4. If prompted about Safe Mode, you can disable safe mode and enable the plugin.
