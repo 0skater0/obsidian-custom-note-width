@@ -1,0 +1,11 @@
+{
+	"id": "custom-note-width",
+	"name": "Custom Note Width",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Let's you adjust the line width on a note-by-note basis.",
+	"author": "0skater0",
+	"authorUrl": "https://github.com/0skater0",
+	"fundingUrl": "https://ko-fi.com/skater_",
+	"isDesktopOnly": true
+}

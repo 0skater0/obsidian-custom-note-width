@@ -1,0 +1,92 @@
+/* Modals */
+#nwm-container {
+	width: 18%;
+}
+
+#nwm-input-container {
+	display: flex;
+	justify-content: space-between;
+}
+
+#nwm-button-container {
+	text-align: right;
+}
+
+/* UI Elements */
+#custom-note-width-wrapper {
+	display: inline-flex;
+	align-items: center;
+	margin: 0px;
+	padding: 0px;
+	height: 12px;
+}
+
+#custom-note-width-slider {
+	margin: 0px;
+	padding: 0px;
+	margin-right: 5px;
+}
+
+#custom-note-width-slider-value {
+	text-align: center;
+	margin-top: 0px;
+	padding: 0px;
+	min-width: 3ch;
+}
+
+#dummy {
+	display: none;
+}
+
+/* Donation button */
+#custom-note-width-donation-button {
+	margin-top: 5%;
+}
+
+#custom-note-width-donation-button p {
+	text-align: center;
+	font-size: 7px;
+	font-style: italic;
+	font-weight: bold;
+	margin-top: -0.5%;
+}
+
+#custom-note-width-donation-button div {
+	display: flex;
+	justify-content: center;
+}
+
+/* Settings */
+.priority-list-item {
+	border: 1px solid rgb(54, 54, 54);
+	border-radius: 8px;
+	margin-bottom: 8px;
+	margin-left: 20px;
+	position: relative;
+	padding-left: 10px;
+	padding-top: 8px;
+	padding-bottom: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.priority-number {
+	position: absolute;
+	left: -20px;
+	font-weight: bold;
+}
+
+.progress-bar-outer {
+	background-color: grey;
+	width: 100%;
+	height: 30px;
+	border-radius: 8px;
+}
+
+.progress-bar-inner {
+	background-color: rgb(125, 91, 237);
+	width: 0%;
+	height: 30px;
+	border-radius: 8px;
+}

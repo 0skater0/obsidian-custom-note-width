@@ -1,0 +1,40 @@
+# vscode
+.vscode 
+
+# Intellij
+*.iml
+.idea
+
+# npm
+node_modules
+
+# Don't include the compiled main.js file in the repo.
+# They should be uploaded to GitHub releases instead.
+main.js
+
+# Don't include eslint stuff
+.eslintignore
+.eslintrc
+
+# Don't include editor configs
+.editorconfig
+
+# Exclude sourcemaps
+*.map
+
+# Don't include npm stuff
+.npmrc
+
+# obsidian
+data.json
+noteWidthDatabase.json
+
+# Exclude macOS Finder (System Explorer) View States
+.DS_Store
+
+testing
+condition.txt
+
+tsconfig.json
+version-bump.mjs
+esbuild.config.mjs
