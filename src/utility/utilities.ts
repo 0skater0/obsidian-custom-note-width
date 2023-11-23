@@ -62,26 +62,6 @@ export function isRecord(value: unknown): value is Record<string, unknown>
 }
 
 /**
- * Retrieves the current window's dimensions.
- * @returns An object containing the window's width and height.
- */
-export function getCurrentWindowState(): { width: number; height: number; }
-{
-	return { width: window.innerWidth, height: window.innerHeight };
-}
-
-/**
- * Compares two window states to determine if the window has been resized.
- * @param previousState - The previous window state.
- * @param currentState - The current window state.
- * @returns True if the window dimensions have changed, false otherwise.
- */
-export function hasResized(previousState: { width: number; height: number; }, currentState: { width: number; height: number; }): boolean
-{
-	return previousState.width !== currentState.width || previousState.height !== currentState.height;
-}
-
-/**
  * Checks if the active leaf in the Obsidian app is a markdown view.
  * @param app - The Obsidian app instance.
  * @returns True if the active leaf is a markdown view, false otherwise.

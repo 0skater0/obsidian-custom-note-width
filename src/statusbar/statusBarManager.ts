@@ -10,6 +10,7 @@ export default class StatusBarManager
 {
 	wrapper: HTMLDivElement | null = null;
 	plugin: CustomNoteWidth;
+	statusBarItemEl: HTMLElement | null = null;
 
 	/**
 	 * Constructs a new StatusBarManager instance.
@@ -32,14 +33,11 @@ export default class StatusBarManager
 			return;
 		}
 
-		const statusBarItemEl = this.plugin.addStatusBarItem();
-		statusBarItemEl.appendChild(this.wrapper);
+		this.statusBarItemEl = this.plugin.addStatusBarItem();
+		this.statusBarItemEl.appendChild(this.wrapper);
+		this.statusBarItemEl.style.paddingLeft = "0px";
 		const statusBar = domElementManager.querySelector(classSelector(DOM_IDENTIFIERS.STATUSBAR));
-		const elementToMove = statusBar?.querySelector(classSelector(DOM_IDENTIFIERS.STATUSBAR_ELEMENT)) as HTMLElement;
-		if (!elementToMove) return;
-
-		elementToMove.style.paddingLeft = "0px";
-		statusBar?.insertBefore(elementToMove, statusBar.firstChild);
+		statusBar?.insertBefore(this.statusBarItemEl, statusBar.firstChild);
 	}
 
 	/**
@@ -47,10 +45,10 @@ export default class StatusBarManager
 	 */
 	public removeStatusBarItem(): void
 	{
-		const statusBarItem = domElementManager.querySelector(classSelector(DOM_IDENTIFIERS.STATUSBAR_ELEMENT));
-		if (!statusBarItem) return;
+		if (!this.statusBarItemEl)
+			return;
 
-		statusBarItem.remove();
+		this.statusBarItemEl.detach();
 	}
 
 	/**
@@ -67,11 +65,10 @@ export default class StatusBarManager
 	 */
 	public showStatusBarItem(): void
 	{
-		const statusBarItem = domElementManager.querySelector(classSelector(DOM_IDENTIFIERS.STATUSBAR_ELEMENT)) as HTMLElement;
-		if (!statusBarItem)
+		if (!this.statusBarItemEl)
 			return;
 
-		statusBarItem.style.display = "flex";
+		this.statusBarItemEl.style.display = "flex";
 	}
 
 	/**
@@ -79,10 +76,9 @@ export default class StatusBarManager
 	 */
 	public hideStatusBarItem(): void
 	{
-		const statusBarItem = domElementManager.querySelector(classSelector(DOM_IDENTIFIERS.STATUSBAR_ELEMENT)) as HTMLElement;
-		if (!statusBarItem)
+		if (!this.statusBarItemEl)
 			return;
 
-		statusBarItem.style.display = "none";
+		this.statusBarItemEl.style.display = "none";
 	}
 }

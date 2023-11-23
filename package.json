@@ -1,6 +1,6 @@
 {
 	"name": "custom-note-width",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "A plugin for Obsidian that enables you to easily adjust the editor's line width on a note-by-note basis. You can do this by using a simple slider located in the status bar or the adjacent text box.",
 	"main": "main.js",
 	"scripts": {

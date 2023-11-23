@@ -1,7 +1,7 @@
 import { App, Notice, WorkspaceLeaf, debounce } from "obsidian";
 import CustomNoteWidth from "src/main";
 import { NOTICES } from "src/utility/constants";
-import { getCurrentWindowState, hasResized, isActiveLeafMarkdown } from "src/utility/utilities";
+import { isActiveLeafMarkdown } from "src/utility/utilities";
 import { CONFIG } from "src/utility/config";
 
 /**
@@ -10,13 +10,8 @@ import { CONFIG } from "src/utility/config";
 export default class EventHandler
 {
 	updateTimeout: number;
-	previousWindowState: { width: number; height: number; };
+	//previousWindowState: { width: number; height: number; };
 	public isUserInputTriggered: boolean = false;
-
-	originalLeftCollapse: (() => void) | null = null;
-	originalLeftExpand: (() => void) | null = null;
-	originalRightCollapse: (() => void) | null = null;
-	originalRightExpand: (() => void) | null = null;
 
 	/**
 	 * Constructs a new EventHandler instance.
@@ -25,7 +20,7 @@ export default class EventHandler
 	 */
 	constructor(private app: App, private plugin: CustomNoteWidth)
 	{
-		this.previousWindowState = { width: window.innerWidth, height: window.innerHeight };
+		//this.previousWindowState = { width: window.innerWidth, height: window.innerHeight };
 	}
 
 	/**
@@ -35,7 +30,6 @@ export default class EventHandler
 	{
 		this.plugin.registerEvent(this.app.workspace.on("resize", this.handleResize));
 		this.plugin.registerEvent(this.app.workspace.on("active-leaf-change", this.handleActiveLeafChange));
-		this.initializeSidebarHandlers();
 	}
 
 	/**
@@ -45,7 +39,6 @@ export default class EventHandler
 	{
 		this.app.workspace.off("resize", this.handleResize);
 		this.app.workspace.off("active-leaf-change", this.handleActiveLeafChange);
-		this.restoreOriginalMethods();
 	}
 
 	/**
@@ -54,16 +47,7 @@ export default class EventHandler
 	 */
 	private handleResize = async (): Promise<void> =>
 	{
-		const currentWindowState = getCurrentWindowState();
-
-		// Guard Clause: Return early if the window hasn't been resized
-		if (!hasResized(this.previousWindowState, currentWindowState))
-		{
-			return;
-		}
-
-		// Update the current window state
-		this.previousWindowState = currentWindowState;
+		this.handleSidebarChange();
 
 		// Check if the slider width exceeds the threshold and reset it if necessary
 		if (this.plugin.settingsManager.getSliderWidth() / window.innerWidth > CONFIG.SLIDER_HIDE_THRESHOLD)
@@ -121,57 +105,6 @@ export default class EventHandler
 	private handleSidebarChange(): void
 	{
 		this.plugin.noteWidthManager.updateNoteWidthEditorStyle(this.plugin.settingsManager.getWidthPercentage());
-	}
-
-	/**
-	 * Initializes sidebar handlers to track changes in sidebar width.
-	 */
-	private initializeSidebarHandlers(): void
-	{
-		if (this.app.workspace.leftSplit && this.app.workspace.rightSplit)
-		{
-			// Save original methods
-			this.originalLeftCollapse = this.app.workspace.leftSplit.collapse;
-			this.originalLeftExpand = this.app.workspace.leftSplit.expand;
-			this.originalRightCollapse = this.app.workspace.rightSplit.collapse;
-			this.originalRightExpand = this.app.workspace.rightSplit.expand;
-
-			// Override methods
-			this.app.workspace.leftSplit.collapse = () =>
-			{
-				if (this.originalLeftCollapse) this.originalLeftCollapse.call(this.app.workspace.leftSplit);
-				this.handleSidebarChange();
-			};
-			this.app.workspace.leftSplit.expand = () =>
-			{
-				if (this.originalLeftExpand) this.originalLeftExpand.call(this.app.workspace.leftSplit);
-				this.handleSidebarChange();
-			};
-			this.app.workspace.rightSplit.collapse = () =>
-			{
-				if (this.originalRightCollapse) this.originalRightCollapse.call(this.app.workspace.rightSplit);
-				this.handleSidebarChange();
-			};
-			this.app.workspace.rightSplit.expand = () =>
-			{
-				if (this.originalRightExpand) this.originalRightExpand.call(this.app.workspace.rightSplit);
-				this.handleSidebarChange();
-			};
-		} else
-		{
-			setTimeout(() => this.initializeSidebarHandlers(), 1000);
-		}
-	}
-
-	/**
-	 * Restores original sidebar methods after deregistering event handlers.
-	 */
-	private restoreOriginalMethods(): void
-	{
-		if (this.originalLeftCollapse) this.app.workspace.leftSplit.collapse = this.originalLeftCollapse;
-		if (this.originalLeftExpand) this.app.workspace.leftSplit.expand = this.originalLeftExpand;
-		if (this.originalRightCollapse) this.app.workspace.rightSplit.collapse = this.originalRightCollapse;
-		if (this.originalRightExpand) this.app.workspace.rightSplit.expand = this.originalRightExpand;
 	}
 
 	/**
