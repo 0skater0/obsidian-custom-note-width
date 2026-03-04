@@ -1,65 +1,6 @@
-import { App, FileSystemAdapter, MarkdownView } from "obsidian";
-import * as path from "path";
-import CustomNoteWidth from "src/main";
+import { App, MarkdownView } from "obsidian";
 import { DOM_IDENTIFIERS } from "src/utility/constants";
-
-/**
- * Retrieves the absolute path to the vault.
- * @param app - The Obsidian app instance.
- * @returns The absolute vault path.
- */
-export function getAbsoluteVaultPath(app: App): string
-{
-	let adapter = app.vault.adapter;
-	if (adapter instanceof FileSystemAdapter)
-	{
-		return adapter.getBasePath();
-	}
-	return "";
-}
-
-/**
- * Retrieves the absolute path to the plugin directory.
- * @param app - The Obsidian app instance.
- * @returns The absolute plugin directory path.
- */
-export function getAbsolutePluginPath(app: App, plugin: CustomNoteWidth): string
-{
-	return path.join(getAbsoluteVaultPath(app), plugin.manifest.dir as string);
-}
-
-/**
- * Retrieves the absolute path to the database file within the plugin directory.
- * @param app - The Obsidian app instance.
- * @param filename - The database filename.
- * @returns The absolute path to the database file.
- */
-export function getDatabasePath(app: App, plugin: CustomNoteWidth, filename: string): string
-{
-	return path.join(getAbsolutePluginPath(app, plugin), filename);
-}
-
-/**
- * Checks if the provided value is a record.
- * @param value - Value to check.
- * @returns True if the value is a record, false otherwise.
- */
-export function isRecord(value: unknown): value is Record<string, unknown>
-{
-	if (typeof value === "object" && value !== null)
-	{
-		const valueAsRecord = value as Record<string, unknown>;
-		for (const key in valueAsRecord)
-		{
-			if (typeof key !== "string" || typeof valueAsRecord[key] === "function" || valueAsRecord[key] === undefined)
-			{
-				return false;
-			}
-		}
-		return true;
-	}
-	return false;
-}
+import { WidthUnit, WidthValue, UnitConfig, UNIT_CONFIGS } from "src/utility/config";
 
 /**
  * Checks if the active leaf in the Obsidian app is a markdown view.
@@ -105,40 +46,40 @@ export function getActiveEditorDiv(app: App, mode: string): Element | null
 }
 
 /**
- * Retrieves the mode of the active markdown view.
- * @returns The mode ("preview" or "source") or null if no active markdown view.
+ * Constructs a selector string for a given class name.
+ * @param className - The class name to use.
+ * @returns A selector string for the class name.
  */
-export function getEditorMode(): string | null
+export function classSelector(className: string): string
 {
-	const view = getActiveMarkdownView(this.app);
-	if (view) return view.getMode();
+	return `.${className}`;
+}
+
+/**
+ * Retrieves the editor's DOM element for a specific view in a given mode.
+ * Unlike getActiveEditorDiv, this works with any MarkdownView, not just the active one.
+ * @param view - The MarkdownView to get the editor div for.
+ * @param mode - The desired mode ("preview" or "source").
+ * @returns The editor's DOM element or null if not found.
+ */
+export function getEditorDivForView(view: MarkdownView, mode: string): Element | null
+{
+	if (mode === "preview")
+	{
+		return view.containerEl.querySelector(classSelector(DOM_IDENTIFIERS.MARKDOWN_PREVIEW_VIEW));
+	} else if (mode === "source")
+	{
+		return view.containerEl.querySelector(classSelector(DOM_IDENTIFIERS.CM_SCROLLER));
+	}
 	return null;
 }
 
 /**
- * Calculates and returns the width of a note based on the width percentage and editor div dimensions.
- * @param widthPercentage - The width percentage.
- * @param editorDiv - The editor's DOM element.
- * @returns The calculated note width or null if unable to calculate.
- */
-export async function calculateNoteWidth(widthPercentage: number, editorDiv: Element): Promise<number | null>
-{
-	const charWidth = await getCharWidth();
-	if (charWidth)
-	{
-		const noteWidth = charWidth * (1 + (widthPercentage / 100) * (editorDiv.clientWidth / charWidth - 1));
-		return noteWidth;
-	} else
-	{
-		return null;
-	}
-}
-
-/**
- * Calculates and returns the width of a single character in the editor.
+ * Synchronously calculates and returns the width of a single character in the editor.
+ * Identical to getCharWidth but with a synchronous signature.
  * @returns The character width or null if unable to calculate.
  */
-export async function getCharWidth(): Promise<number | null>
+export function getCharWidthSync(): number | null
 {
 	const editorDiv = document.querySelector(classSelector(DOM_IDENTIFIERS.MARKDOWN_PREVIEW_VIEW)) || document.querySelector(classSelector(DOM_IDENTIFIERS.CM_SCROLLER));
 	if (!editorDiv)
@@ -163,32 +104,25 @@ export async function getCharWidth(): Promise<number | null>
 }
 
 /**
- * Constructs a selector string for a given ID.
- * @param id - The ID to use.
- * @returns A selector string for the ID.
+ * Validates a given width value to ensure it's within the allowed range for its unit.
+ * @param width - The width value to be validated.
+ * @param unit - The width unit (defaults to '%' for backwards compatibility).
+ * @param unitConfig - Optional custom unit config. Falls back to UNIT_CONFIGS defaults.
+ * @returns The clamped width value.
  */
-export function idSelector(id: string): string
+export function validateWidth(width: number, unit: WidthUnit = '%', unitConfig?: UnitConfig): number
 {
-	return `#${id}`;
+	const config = unitConfig ?? UNIT_CONFIGS[unit];
+	return Math.min(config.max, Math.max(config.min, width));
 }
 
 /**
- * Constructs a selector string for a given class name.
- * @param className - The class name to use.
- * @returns A selector string for the class name.
+ * Validates a WidthValue, clamping its value to the allowed range for its unit.
+ * @param wv - The WidthValue to validate.
+ * @param unitConfig - Optional custom unit config. Falls back to UNIT_CONFIGS defaults.
+ * @returns A new WidthValue with the clamped value.
  */
-export function classSelector(className: string): string
+export function validateWidthValue(wv: WidthValue, unitConfig?: UnitConfig): WidthValue
 {
-	return `.${className}`;
-}
-
-/**
- * Validates a given width value to ensure it's within a specified range.
- *
- * @param {number} width - The width value to be validated.
- * @returns {number} - Returns the validated width value. If the input width is greater than 100, it returns 100. If it's less than 0, it returns 0. If the input is not a number, it returns the defaultWidth.
- */
-export function validateWidth(width: number): number
-{
-	return Math.min(100, Math.max(0, width));
+	return { value: validateWidth(wv.value, wv.unit, unitConfig), unit: wv.unit };
 }

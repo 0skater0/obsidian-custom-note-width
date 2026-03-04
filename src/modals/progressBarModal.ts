@@ -1,5 +1,6 @@
 import { Modal, App } from "obsidian";
-import { CANCEL_BUTTON_TEXT, DOM_IDENTIFIERS } from "src/utility/constants";
+import { DOM_IDENTIFIERS } from "src/utility/constants";
+import { t } from "src/i18n/i18n";
 import { classSelector } from "src/utility/utilities";
 import { domElementManager } from "src/ui/domElementManager";
 
@@ -30,7 +31,7 @@ export default class ProgressBarModal extends Modal
 	 */
 	private addCancelButton(): void
 	{
-		const cancelButton = this.contentEl.createEl("button", { text: CANCEL_BUTTON_TEXT });
+		const cancelButton = this.contentEl.createEl("button", { text: t("button.cancel") });
 		cancelButton.style.marginTop = "20px";
 		cancelButton.style.float = "right";
 		cancelButton.onclick = () =>
@@ -65,7 +66,7 @@ export default class ProgressBarModal extends Modal
 		const progressBarContainer = this.contentEl.createDiv({ cls: DOM_IDENTIFIERS.PROGRESS_BAR_CONTAINER });
 
 		const outerDiv = progressBarContainer.createDiv({ cls: DOM_IDENTIFIERS.PROGRESS_OUTER });
-		const innerDiv = outerDiv.createDiv({ cls: DOM_IDENTIFIERS.PROGRESS_INNER });
+		outerDiv.createDiv({ cls: DOM_IDENTIFIERS.PROGRESS_INNER });
 	}
 
 	/**

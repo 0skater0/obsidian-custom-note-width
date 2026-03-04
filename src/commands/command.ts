@@ -1,6 +1,8 @@
 import CustomNoteWidth from "src/main";
-import { COMMANDS } from "src/utility/constants";
+import { COMMAND_IDS } from "src/utility/constants";
+import { t } from "src/i18n/i18n";
 import { isActiveLeafMarkdown } from "src/utility/utilities";
+import { WidthValue } from "src/utility/config";
 
 /**
  * Abstract base class for commands.
@@ -20,7 +22,7 @@ export abstract class Command
 	 * @param name - Display name of the command.
 	 * @param modalTitle - Title of the modal associated with the command.
 	 */
-	constructor(id: string, name: string, modalTitle: string)
+	protected constructor(id: string, name: string, modalTitle: string)
 	{
 		this.id = id;
 		this.name = name;
@@ -29,9 +31,9 @@ export abstract class Command
 
 	/**
 	 * Executes the command.
-	 * @param arg - The argument for the command.
+	 * @param wv - The WidthValue argument for the command.
 	 */
-	abstract execute(arg: number): void;
+	abstract execute(wv: WidthValue): void;
 
 	/**
 	 * Determines if the command can be executed.
@@ -54,20 +56,20 @@ export class ChangeDefaultNoteWidthCommand extends Command
 	 */
 	constructor(plugin: CustomNoteWidth)
 	{
-		super(COMMANDS.CHANGE_DEFAULT_NOTE_WIDTH.ID, COMMANDS.CHANGE_DEFAULT_NOTE_WIDTH.NAME, COMMANDS.CHANGE_DEFAULT_NOTE_WIDTH.MODAL_TITLE);
+		super(COMMAND_IDS.CHANGE_DEFAULT_NOTE_WIDTH, t("command.change_default_width.name"), t("command.change_default_width.modal_title"));
 		this.plugin = plugin;
 	}
 
 	/** @inheritdoc */
-	public execute(arg: number): void
+	public execute(wv: WidthValue): void
 	{
-		this.plugin.noteWidthManager.changeDefaultNoteWidth(arg);
+		void this.plugin.noteWidthManager.changeDefaultNoteWidth(wv);
 	}
 
 	/** @inheritdoc */
 	public canExecute(): boolean
 	{
-		return this.plugin.settingsManager.getEnableChangeDefaultNoteWidth() && this.plugin.settingsManager.getEnableSaveWidthIndividually();
+		return true;
 	}
 }
 
@@ -85,14 +87,14 @@ export class ChangeAllNoteWidthCommand extends Command
 	 */
 	constructor(plugin: CustomNoteWidth)
 	{
-		super(COMMANDS.CHANGE_ALL_NOTE_WIDTH.ID, COMMANDS.CHANGE_ALL_NOTE_WIDTH.NAME, COMMANDS.CHANGE_ALL_NOTE_WIDTH.MODAL_TITLE);
+		super(COMMAND_IDS.CHANGE_ALL_NOTE_WIDTH, t("command.change_all_width.name"), t("command.change_all_width.modal_title"));
 		this.plugin = plugin;
 	}
 
 	/** @inheritdoc */
-	public execute(arg: number): void
+	public execute(wv: WidthValue): void
 	{
-		this.plugin.noteWidthManager.changeAllNoteWidth(arg);
+		void this.plugin.noteWidthManager.changeAllNoteWidth(wv);
 	}
 
 	/** @inheritdoc */
@@ -116,14 +118,14 @@ export class ChangeNoteWidthCommand extends Command
 	 */
 	constructor(plugin: CustomNoteWidth)
 	{
-		super(COMMANDS.CHANGE_NOTE_WIDTH.ID, COMMANDS.CHANGE_NOTE_WIDTH.NAME, COMMANDS.CHANGE_NOTE_WIDTH.MODAL_TITLE);
+		super(COMMAND_IDS.CHANGE_NOTE_WIDTH, t("command.change_note_width.name"), t("command.change_note_width.modal_title"));
 		this.plugin = plugin;
 	}
 
 	/** @inheritdoc */
-	public execute(arg: number): void
+	public execute(wv: WidthValue): void
 	{
-		this.plugin.noteWidthManager.changeNoteWidth(arg);
+		void this.plugin.noteWidthManager.changeNoteWidth(wv);
 	}
 
 	/** @inheritdoc */

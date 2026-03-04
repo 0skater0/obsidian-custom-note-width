@@ -30,19 +30,11 @@ class DOMElementManager
 
 	/**
 	 * Invalidates (removes) an element from the cache.
-	 * @param selector - CSS selector of the element to invalidate.
+	 * @param key - The cache key of the element to invalidate.
 	 */
 	public invalidateCache(key: string): void
 	{
 		this.cachedElements.delete(key);
-	}
-
-	/**
-	 * Clears the entire cache.
-	 */
-	public clearCache(): void
-	{
-		this.cachedElements.clear();
 	}
 
 	/**

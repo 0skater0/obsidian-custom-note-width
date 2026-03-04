@@ -1,0 +1,116 @@
+name: Bug report
+description: Create a report to help improve Custom Note Width
+labels: ["bug"]
+title: "[Bug]: "
+body:
+  - type: checkboxes
+    id: pre-check
+    attributes:
+      label: Pre-check
+      description: "You must confirm **all** of the following before you can submit this report."
+      options:
+        - label: I have read the [Bug Reporting Guidelines](https://github.com/0skater0/obsidian-custom-note-width#reporting-bugs).
+          required: true
+        - label: I have searched the [existing issues](https://github.com/0skater0/obsidian-custom-note-width/issues) and this bug has not been reported yet.
+          required: true
+        - label: I have **"Readable line length"** enabled in Obsidian (`Settings > Editor > Readable line length`).
+          required: true
+  - type: textarea
+    id: describe-the-bug
+    attributes:
+      label: Describe the bug
+      description: "A clear and concise description of what the bug is."
+      placeholder: "Describe the issue"
+    validations:
+      required: true
+  - type: textarea
+    id: how-to-reproduce
+    attributes:
+      label: How to reproduce
+      description: "Steps to reproduce the behavior."
+      placeholder: |
+        1. Open Obsidian
+        2. Enable the plugin
+        3. Open a note
+        4. Move the slider to 80%
+        5. Switch to another tab
+        6. See the width jump
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: "A clear and concise description of what you expected to happen."
+      placeholder: "The behavior that I expect to see is [...]"
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does this occur?
+      options:
+        - Always (every time)
+        - Sometimes (intermittent)
+        - Only once
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: obsidian-version
+    attributes:
+      label: Obsidian version
+      description: "Found in `Settings > General` (top of the page)"
+      placeholder: "e.g. 1.12.4"
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: "Found in `Settings > Community plugins`, listed next to \"Custom Note Width\" under installed plugins"
+      placeholder: "e.g. 1.0.2"
+    validations:
+      required: true
+  - type: input
+    id: theme
+    attributes:
+      label: Theme
+      description: "Found in `Settings > Appearance > Themes` (shows the currently active theme). Write \"Default\" if you haven't changed it."
+      placeholder: "e.g. Default, Things, Minimal"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Videos
+      description: "If applicable, add screenshots or short screen recordings to help explain the problem."
+    validations:
+      required: false
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Console errors
+      description: "Open the Developer Console (`Ctrl+Shift+I` on Windows/Linux, `Cmd+Option+I` on macOS), click the Console tab, and paste any red error messages that mention `custom-note-width`."
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: "Add any other context about the problem here (other plugins installed, custom CSS snippets, etc.)."
+      placeholder: "Also note that [...]"
+    validations:
+      required: false

@@ -1,17 +1,4 @@
-/**
- * UUID format string used for generating unique identifiers.
- */
-export const UUID_FORMAT = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
-
-/**
- * Regular expression used for detecting and parsing YAML frontmatter sections.
- */
-export const YAML_FRONTMATTER_REGEX = new RegExp(/^---\n([\s\S]*?)\n---/);
-
-/**
- * Default width (in percentage) applied to notes.
- */
-export const DEFAULT_NOTE_WIDTH = 36;
+import { t } from "src/i18n/i18n";
 
 /**
  * Human-readable name of the plugin.
@@ -19,116 +6,20 @@ export const DEFAULT_NOTE_WIDTH = 36;
 export const PLUGIN_NAME = "Custom Note Width";
 
 /**
- * Name of the database collection used for storing note widths.
- */
-export const DATABASE_COLLECTION_NOTE_WIDTHS = "NoteWidths";
-
-/**
- * Filename of the database used for storing note widths.
- */
-export const DATABASE_FILENAME = "noteWidthDatabase.json";
-
-/**
  * Link for donations to support the plugin's development.
  */
 export const DONATION_LINK = "https://ko-fi.com/skater_";
 
 /**
- * Disclaimer text displayed when presenting the donation link.
+ * Command identifiers for the plugin.
+ * @property {string} CHANGE_NOTE_WIDTH - Command ID to change the width of the open note.
+ * @property {string} CHANGE_DEFAULT_NOTE_WIDTH - Command ID to change the default note width.
+ * @property {string} CHANGE_ALL_NOTE_WIDTH - Command ID to change the width for all notes.
  */
-export const DONATION_DISCLAIMER_TEXT = "Disclaimer: Please note that clicking the image will open a link in your browser.";
-
-/**
- * Start delimiter for YAML frontmatter sections.
- */
-export const YAML_START = "---\n";
-
-/**
- * End delimiter for YAML frontmatter sections.
- */
-export const YAML_END = "\n---";
-
-/**
- * Double newline used as a separator in YAML sections.
- */
-export const YAML_NEWLINE = "\n\n";
-
-/**
- * Key used in YAML frontmatter to store the note's unique identifier.
- */
-export const NOTE_ID_KEY = "noteID";
-
-/**
- * Text displayed on the cancel button in the plugin's UI.
- */
-export const CANCEL_BUTTON_TEXT = "Cancel";
-
-/**
- * Text displayed on the apply button in the plugin's UI.
- */
-export const APPLY_BUTTON_TEXT = "Apply";
-
-/**
- * Title for the modal used when updating YAML frontmatter keys in all notes.
- */
-export const PROGRESS_BAR_MODAL_KEY_TITLE_TEXT = "Changing all YAML-Frontmatter keys...";
-
-/**
- * Title for the modal used when updating the value of all YAML frontmatter keys in all notes.
- */
-export const PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT = "Changing the value for all YAML-Frontmatter's...";
-
-/**
- * List of priority checks performed to determine the width of a note.
- * @property {string} SAVED_NOTE_WIDTH - Check for a saved note width in the database.
- * @property {string} YAML_NOTE_WIDTH - Check for a width specified in the note's YAML frontmatter.
- */
-export const PRIORITY_LIST = {
-	SAVED_NOTE_WIDTH: "Check for saved note width",
-	YAML_NOTE_WIDTH: "Check for YAML-Frontmatter width"
-};
-
-/**
- * Definitions of commands provided by the plugin.
- * @property {Object} CHANGE_NOTE_WIDTH - Command to change the width of the open note.
- * @property {string} CHANGE_NOTE_WIDTH.ID - Command identifier.
- * @property {string} CHANGE_NOTE_WIDTH.NAME - Human-readable command name.
- * @property {string} CHANGE_NOTE_WIDTH.MODAL_TITLE - Title for the modal prompt.
- * 
- * @property {Object} CHANGE_DEFAULT_NOTE_WIDTH - Command to change the default note width.
- * @property {string} CHANGE_DEFAULT_NOTE_WIDTH.ID - Command identifier.
- * @property {string} CHANGE_DEFAULT_NOTE_WIDTH.NAME - Human-readable command name.
- * @property {string} CHANGE_DEFAULT_NOTE_WIDTH.MODAL_TITLE - Title for the modal prompt.
- * 
- * @property {Object} CHANGE_ALL_NOTE_WIDTH - Command to change the width for all notes.
- * @property {string} CHANGE_ALL_NOTE_WIDTH.ID - Command identifier.
- * @property {string} CHANGE_ALL_NOTE_WIDTH.NAME - Human-readable command name.
- * @property {string} CHANGE_ALL_NOTE_WIDTH.MODAL_TITLE - Title for the modal prompt.
- */
-export const COMMANDS = {
-	CHANGE_NOTE_WIDTH: {
-		ID: "change-note-width",
-		NAME: "Change the width of the open note",
-		MODAL_TITLE: "Enter the width for the open note (%)"
-	},
-	CHANGE_DEFAULT_NOTE_WIDTH: {
-		ID: "change-default-note-width",
-		NAME: "Change the default note width",
-		MODAL_TITLE: "Enter the default note width (%)"
-	},
-	CHANGE_ALL_NOTE_WIDTH: {
-		ID: "change-all-note-width",
-		NAME: "Change the width for all notes",
-		MODAL_TITLE: "Enter the width for all notes (%)"
-	}
-};
-
-/**
- * Notices and warnings displayed to users.
- * @property {string} SLIDER_HIDE_WARNING - Warning message when the slider UI element is too large.
- */
-export const NOTICES = {
-	SLIDER_HIDE_WARNING: "Slider too large!"
+export const COMMAND_IDS = {
+	CHANGE_NOTE_WIDTH: "change-note-width",
+	CHANGE_DEFAULT_NOTE_WIDTH: "change-default-note-width",
+	CHANGE_ALL_NOTE_WIDTH: "change-all-note-width",
 };
 
 /**
@@ -148,8 +39,6 @@ export const NOTICES = {
  * @property {string} NWM_CONTAINER - Identifier for the note width manager container.
  * @property {string} NWM_INPUT_CONTAINER - Identifier for the note width manager input container.
  * @property {string} NWM_BUTTON_CONTAINER - Identifier for the note width manager button container.
- * @property {string} PRIORITY_LIST_ITEM - Identifier for a priority list item.
- * @property {string} PRIORITY_NUMBER - Identifier for displaying priority numbers.
  */
 export const DOM_IDENTIFIERS = {
 	DUMMY: "dummy",
@@ -169,8 +58,8 @@ export const DOM_IDENTIFIERS = {
 	NWM_CONTAINER: "nwm-container",
 	NWM_INPUT_CONTAINER: "nwm-input-container",
 	NWM_BUTTON_CONTAINER: "nwm-button-container",
-	PRIORITY_LIST_ITEM: "priority-list-item",
-	PRIORITY_NUMBER: "priority-number"
+	UNIT_SELECTOR: "custom-note-width-unit-selector",
+	NWM_UNIT_SELECTOR: "nwm-unit-selector"
 };
 
 /**
@@ -180,7 +69,7 @@ export const DOM_IDENTIFIERS = {
  */
 export function getLoadedMessage(version: string): string
 {
-	return `${PLUGIN_NAME} v${version} loaded!`;
+	return t("plugin.loaded", { name: PLUGIN_NAME, version });
 }
 
 /**
@@ -190,7 +79,7 @@ export function getLoadedMessage(version: string): string
  */
 export function getUnloadedMessage(version: string): string
 {
-	return `${PLUGIN_NAME} v${version} unloaded!`;
+	return t("plugin.unloaded", { name: PLUGIN_NAME, version });
 }
 
 // ============================

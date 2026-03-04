@@ -3,9 +3,9 @@ import type CustomNoteWidth from "src/main";
 import DonationButton from "src/settings/donationButton";
 import YamlFrontMatterProcessor from "src/note/yamlFrontMatterProcessor";
 import ProgressBarModal from "src/modals/progressBarModal";
-import { DATABASE_FILENAME, DOM_IDENTIFIERS, NOTICES, PROGRESS_BAR_MODAL_KEY_TITLE_TEXT } from "src/utility/constants";
-import LokiDatabase from "src/utility/lokiDatabase";
-import { getDatabasePath } from "src/utility/utilities";
+import { PLUGIN_NAME } from "src/utility/constants";
+import { t, setLocaleOverride, SUPPORTED_LOCALES } from "src/i18n/i18n";
+import { WidthUnit, UNIT_CONFIGS, VALID_UNITS, UNIT_ABSOLUTE_BOUNDS } from "src/utility/config";
 
 /**
  * Represents the settings tab for the CustomNoteWidth plugin.
@@ -35,10 +35,35 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 		const { containerEl } = this;
 		containerEl.empty();
 
+		// --- Language Section ---
+
+		new Setting(containerEl)
+			.setName(t("settings.language.name"))
+			.setDesc(t("settings.language.desc"))
+			.addDropdown((dropdown) =>
+			{
+				for (const loc of SUPPORTED_LOCALES)
+				{
+					dropdown.addOption(loc.value, loc.label);
+				}
+				dropdown.setValue(this.plugin.settingsManager.getLanguage());
+				dropdown.onChange(async (value) =>
+				{
+					setLocaleOverride(value === "auto" ? null : value);
+					await this.plugin.settingsManager.saveSettings({
+						...this.plugin.settingsManager.settings,
+						language: value,
+					});
+					this.display();
+				});
+			});
+
+		// --- UI Section ---
+
 		// Toggle to enable the slider
 		new Setting(containerEl)
-			.setName("Enable slider")
-			.setDesc("Toggle to enable/disable the slider.")
+			.setName(t("settings.enable_slider.name"))
+			.setDesc(t("settings.enable_slider.desc"))
 			.addToggle((cb: ToggleComponent) =>
 			{
 				cb.setValue(this.plugin.settingsManager.getEnableSlider());
@@ -57,14 +82,14 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 		if (this.plugin.settingsManager.getEnableSlider())
 		{
 			new Setting(containerEl)
-				.setName("Slider width")
-				.setDesc("Change the width of the slider.")
+				.setName(t("settings.slider_width.name"))
+				.setDesc(t("settings.slider_width.desc"))
 				.addText((text) => text
 					.setPlaceholder("85")
 					.setValue(this.plugin.settingsManager.getSliderWidth().toString())
 					.onChange(async (value) =>
 					{
-						let sliderWidth = parseInt(value);
+						const sliderWidth = parseInt(value);
 
 						if (value === "")
 						{
@@ -82,7 +107,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 						}
 						else if (sliderWidth / window.innerWidth > 0.9)
 						{
-							new Notice(NOTICES.SLIDER_HIDE_WARNING, 5000);
+							new Notice(t("notice.slider_too_large"), 5000);
 							await this.plugin.settingsManager.saveSettings({
 								...this.plugin.settingsManager.settings,
 								sliderWidth: this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth
@@ -106,8 +131,8 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 
 		// Allow the change of the note width via text field input
 		new Setting(containerEl)
-			.setName("Enable text field")
-			.setDesc("Enable to change the width via text field input.")
+			.setName(t("settings.enable_text_field.name"))
+			.setDesc(t("settings.enable_text_field.desc"))
 			.addToggle((cb: ToggleComponent) =>
 			{
 				cb.setValue(this.plugin.settingsManager.getEnableTextInput());
@@ -122,148 +147,171 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 				});
 			});
 
-		// Toggle to separately save the width of each note
+		// --- Width Section ---
+
+		// Default width unit selector
 		new Setting(containerEl)
-			.setName("Change width for each note")
-			.setDesc("Toggle to separately change and save the width of notes.")
-			.addToggle((cb: ToggleComponent) =>
+			.setName(t("settings.default_width_unit.name"))
+			.setDesc(t("settings.default_width_unit.desc"))
+			.addDropdown((dropdown) =>
 			{
-				cb.setValue(
-					this.plugin.settingsManager.getEnableSaveWidthIndividually()
-				);
-				cb.onChange(async (value: boolean) =>
+				for (const unit of VALID_UNITS)
 				{
+					dropdown.addOption(unit, unit);
+				}
+				dropdown.setValue(this.plugin.settingsManager.getDefaultWidthUnit());
+				dropdown.onChange(async (value) =>
+				{
+					const newUnit = value as WidthUnit;
+					const config = this.plugin.settingsManager.getUnitConfig(newUnit);
+					let currentWidth = this.plugin.settingsManager.getDefaultWidth();
+
+					// Clamp to new unit's range
+					if (currentWidth < config.min || currentWidth > config.max)
+					{
+						currentWidth = config.defaultValue;
+					}
+
 					await this.plugin.settingsManager.saveSettings({
 						...this.plugin.settingsManager.settings,
-						enableSaveWidthIndividually: value
+						defaultWidthUnit: newUnit,
+						defaultWidth: currentWidth,
 					});
-
-					if (value && !this.plugin.database)
-					{
-						this.plugin.database = new LokiDatabase(getDatabasePath(this.plugin.app, this.plugin, DATABASE_FILENAME));
-						await this.plugin.database.init();
-					}
-
-					if (!value)
-					{
-						await this.plugin.settingsManager.saveSettings({
-							...this.plugin.settingsManager.settings,
-							enableChangeDefaultNoteWidth: false
-						});
-					}
+					this.plugin.uiManager.updateUI();
 					this.display();
 				});
 			});
 
-		// Only show this setting if enableSaveWidthIndividually is enabled
-		if (this.plugin.settingsManager.getEnableSaveWidthIndividually())
+		// Default width setting (always visible)
 		{
-			// Toggle to change default note width
+			const unit = this.plugin.settingsManager.getDefaultWidthUnit();
+			const config = this.plugin.settingsManager.getUnitConfig(unit);
+
 			new Setting(containerEl)
-				.setName("Change default note width")
-				.setDesc("Toggle to change the default width of notes.")
-				.addToggle((cb: ToggleComponent) =>
-				{
-					cb.setValue(
-						this.plugin.settingsManager.getEnableChangeDefaultNoteWidth()
-					);
-					cb.onChange(async (value: boolean) =>
-					{
-						await this.plugin.settingsManager.saveSettings({
-							...this.plugin.settingsManager.settings,
-							enableChangeDefaultNoteWidth: value
-						});
-						if (value)
+				.setName(t("settings.default_width.name"))
+				.setDesc(t("settings.default_width.desc", { unit, min: config.min, max: config.max }))
+				.addText((text) =>
+					text
+						.setPlaceholder(config.defaultValue.toString())
+						.setValue(this.plugin.settingsManager.getDefaultWidth().toString())
+						.onChange(async (value) =>
 						{
-							this.plugin.commandsManager.enableCommand(
-								"change-default-note-width"
-							);
-						} else
-						{
-							this.plugin.commandsManager.disableCommand(
-								"change-default-note-width"
-							);
-						}
-						this.display();
-					});
-				});
+							const defaultWidth = parseInt(value);
 
-			if (this.plugin.settingsManager.getEnableChangeDefaultNoteWidth())
-			{
-				// Change the default width for notes
-				new Setting(containerEl)
-					.setName("Default width")
-					.setDesc("Set the Default width each new note should have.")
-					.addText((text) =>
-						text
-							.setPlaceholder("36")
-							.setValue(this.plugin.settingsManager.getDefaultNoteWidth().toString())
-							.onChange(async (value) =>
+							if (value === "" || value.trim() === "")
 							{
-								let defaultWidth = parseInt(value);
-
-								if (value === "" || value.trim() === "")
-								{
-									return;
-								}
-								else if (isNaN(defaultWidth))
-								{
-									await this.plugin.settingsManager.saveSettings({
-										...this.plugin.settingsManager.settings,
-										defaultNoteWidth: this.plugin.settingsManager.DEFAULT_SETTINGS.defaultNoteWidth
-									});
-
-									text.setValue(this.plugin.settingsManager.DEFAULT_SETTINGS.defaultNoteWidth.toString());
-								} else if (defaultWidth < 0)
-								{
-									await this.plugin.settingsManager.saveSettings({
-										...this.plugin.settingsManager.settings,
-										defaultNoteWidth: 0
-									});
-
-									text.setValue("0");
-								}
-								else if (defaultWidth > 100)
-								{
-									await this.plugin.settingsManager.saveSettings({
-										...this.plugin.settingsManager.settings,
-										defaultNoteWidth: 100
-									});
-
-									text.setValue("100");
-								}
-								else
-								{
-									await this.plugin.settingsManager.saveSettings({ ...this.plugin.settingsManager.settings, defaultNoteWidth: defaultWidth });
-								}
-							})
-					);
-			}
+								return;
+							}
+							else if (isNaN(defaultWidth))
+							{
+								await this.plugin.settingsManager.saveSettings({
+									...this.plugin.settingsManager.settings,
+									defaultWidth: config.defaultValue
+								});
+								text.setValue(config.defaultValue.toString());
+							}
+							else if (defaultWidth < config.min)
+							{
+								await this.plugin.settingsManager.saveSettings({
+									...this.plugin.settingsManager.settings,
+									defaultWidth: config.min
+								});
+								text.setValue(config.min.toString());
+							}
+							else if (defaultWidth > config.max)
+							{
+								await this.plugin.settingsManager.saveSettings({
+									...this.plugin.settingsManager.settings,
+									defaultWidth: config.max
+								});
+								text.setValue(config.max.toString());
+							}
+							else
+							{
+								await this.plugin.settingsManager.saveSettings({
+									...this.plugin.settingsManager.settings,
+									defaultWidth: defaultWidth
+								});
+							}
+						})
+				);
 		}
 
-		// Toggle to enable the option to retrieve note width from the YAML front matter.
+		// --- Range Section ---
+
+		for (const rangeUnit of VALID_UNITS)
+		{
+			const bounds = UNIT_ABSOLUTE_BOUNDS[rangeUnit];
+			const currentRanges = this.plugin.settingsManager.settings.unitRanges[rangeUnit];
+
+			new Setting(containerEl)
+				.setName(t("settings.unit_range.name", { unit: rangeUnit }))
+				.setDesc(t("settings.unit_range.desc", { unit: rangeUnit, min: bounds.min, max: bounds.max }))
+				.addText((text) =>
+					text
+						.setPlaceholder(UNIT_CONFIGS[rangeUnit].min.toString())
+						.setValue(currentRanges.min.toString())
+						.onChange(async (value) =>
+						{
+							let min = parseInt(value);
+							if (value === "" || isNaN(min)) return;
+							min = Math.max(bounds.min, Math.min(bounds.max, min));
+							if (min >= currentRanges.max) min = currentRanges.max - 1;
+							const updatedRanges = { ...this.plugin.settingsManager.settings.unitRanges };
+							updatedRanges[rangeUnit] = { ...updatedRanges[rangeUnit], min };
+							await this.plugin.settingsManager.saveSettings({
+								...this.plugin.settingsManager.settings,
+								unitRanges: updatedRanges,
+							});
+							this.plugin.uiManager.updateUI();
+						})
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder(UNIT_CONFIGS[rangeUnit].max.toString())
+						.setValue(currentRanges.max.toString())
+						.onChange(async (value) =>
+						{
+							let max = parseInt(value);
+							if (value === "" || isNaN(max)) return;
+							max = Math.max(bounds.min, Math.min(bounds.max, max));
+							if (max <= currentRanges.min) max = currentRanges.min + 1;
+							const updatedRanges = { ...this.plugin.settingsManager.settings.unitRanges };
+							updatedRanges[rangeUnit] = { ...updatedRanges[rangeUnit], max };
+							await this.plugin.settingsManager.saveSettings({
+								...this.plugin.settingsManager.settings,
+								unitRanges: updatedRanges,
+							});
+							this.plugin.uiManager.updateUI();
+						})
+				);
+		}
+
+		// --- Per-Note Section ---
+
+		// Toggle to enable per-note width via YAML frontmatter
 		new Setting(containerEl)
-			.setName("Enable custom width via YAML front matter")
-			.setDesc("Enable the option to retrieve note width from the YAML front matter.")
+			.setName(t("settings.enable_per_note.name"))
+			.setDesc(t("settings.enable_per_note.desc"))
 			.addToggle((cb: ToggleComponent) =>
 			{
-				cb.setValue(this.plugin.settingsManager.getEnableYAMLWidth());
+				cb.setValue(this.plugin.settingsManager.getEnablePerNoteWidth());
 				cb.onChange(async (value: boolean) =>
 				{
 					await this.plugin.settingsManager.saveSettings({
 						...this.plugin.settingsManager.settings,
-						enableYAMLWidth: value,
+						enablePerNoteWidth: value,
 					});
 					this.display();
 				});
 			});
 
-		// Only show this setting if enableYAMLWidth is enabled
-		if (this.plugin.settingsManager.getEnableYAMLWidth())
+		// Only show YAML key setting if per-note width is enabled
+		if (this.plugin.settingsManager.getEnablePerNoteWidth())
 		{
 			new Setting(containerEl)
-				.setName("YAML front matter key for custom width")
-				.setDesc("Specify the YAML front matter key to use for setting the custom width of the editor. If a note includes this key in its YAML front matter, the specified value will be used as the editor's width.")
+				.setName(t("settings.yaml_key.name"))
+				.setDesc(t("settings.yaml_key.desc"))
 				.addText((text) =>
 				{
 					text.setPlaceholder("custom-width")
@@ -284,7 +332,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 
 								if (oldKey !== value)
 								{
-									const progressBarModal = new ProgressBarModal(this.app, PROGRESS_BAR_MODAL_KEY_TITLE_TEXT);
+									const progressBarModal = new ProgressBarModal(this.app, t("progress.changing_keys"));
 									progressBarModal.display();
 
 									// Call the method to replace old key with new key in all notes
@@ -302,77 +350,169 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 				});
 		}
 
-		// Only show priority list if getEnableYAMLWidth and getEnableSaveWidthIndividually
-		if (this.plugin.settingsManager.getEnableYAMLWidth() &&
-			this.plugin.settingsManager.getEnableSaveWidthIndividually())
-		{
-			new Setting(containerEl)
-				.setName("Priority list")
-				.setDesc("Choose the priority in which the following will be executed.");
+		// --- Code Block Width Section ---
+
+		// Toggle to enable separate code block width
+		new Setting(containerEl)
+			.setName(t("settings.enable_code_block.name"))
+			.setDesc(t("settings.enable_code_block.desc"))
+			.addToggle((cb: ToggleComponent) =>
 			{
-				const listContainer = containerEl.createEl("div");
-
-				// For each function, create a list item with up/down buttons
-				this.plugin.settingsManager.getPriorityList().forEach((funcName, index) =>
+				cb.setValue(this.plugin.settingsManager.getEnableCodeBlockWidth());
+				cb.onChange(async (value: boolean) =>
 				{
-					// Create a container for this list item
-					const listItem = listContainer.createEl("div", { cls: DOM_IDENTIFIERS.PRIORITY_LIST_ITEM });
+					await this.plugin.settingsManager.saveSettings({
+						...this.plugin.settingsManager.settings,
+						enableCodeBlockWidth: value,
+					});
+					this.plugin.noteWidthManager.applyWidthForLeaf();
+					this.display();
+				});
+			});
 
-					// Add the priority number
-					const priority = listItem.createEl("span", { cls: DOM_IDENTIFIERS.PRIORITY_NUMBER });
-					priority.innerText = `${index + 1}. `;
-
-					// Add the function name
-					const funcNameContainer = listItem.createEl("div");
-					const funcNameSpan = funcNameContainer.createEl("span");
-					funcNameSpan.innerText = funcName;
-
-					// Create the button container
-					const buttonContainer = listItem.createEl("div");
-					buttonContainer.style.float = "right";
-
-					// Create the up button if this is not the first item
-					if (index > 0)
+		if (this.plugin.settingsManager.getEnableCodeBlockWidth())
+		{
+			// Code block width unit selector
+			new Setting(containerEl)
+				.setName(t("settings.code_block_unit.name"))
+				.setDesc(t("settings.code_block_unit.desc"))
+				.addDropdown((dropdown) =>
+				{
+					for (const unit of VALID_UNITS)
 					{
-						const upButton = buttonContainer.createEl("button");
-						upButton.innerText = "\u2191";
-						upButton.style.marginRight = "8px";
-						upButton.addEventListener("click", async () =>
-						{
-							const priorityList = this.plugin.settingsManager.getPriorityList();
-							[priorityList[index], priorityList[index - 1]] = [priorityList[index - 1], priorityList[index]];
-							await this.plugin.settingsManager.saveSettings({
-								...this.plugin.settingsManager.settings,
-								priorityList: priorityList
-							});
-							this.display();
-						});
+						dropdown.addOption(unit, unit);
 					}
-
-					// Create the down button if this is not the last item
-					if (index < this.plugin.settingsManager.getPriorityList().length - 1)
+					dropdown.setValue(this.plugin.settingsManager.getCodeBlockWidthUnit());
+					dropdown.onChange(async (value) =>
 					{
-						const downButton = buttonContainer.createEl("button");
-						downButton.innerText = "\u2193";
-						downButton.style.marginRight = "8px";
-						downButton.addEventListener("click", async () =>
-						{
-							const priorityList = this.plugin.settingsManager.getPriorityList();
-							[priorityList[index], priorityList[index + 1]] = [priorityList[index + 1], priorityList[index]];
-							await this.plugin.settingsManager.saveSettings({
-								...this.plugin.settingsManager.settings,
-								priorityList: priorityList
-							});
-							this.display();
-						});
+						const newUnit = value as WidthUnit;
+						const config = this.plugin.settingsManager.getUnitConfig(newUnit);
+						let currentWidth = this.plugin.settingsManager.getCodeBlockWidth();
 
-					}
+						if (currentWidth < config.min || currentWidth > config.max)
+						{
+							currentWidth = config.defaultValue;
+						}
+
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							codeBlockWidthUnit: newUnit,
+							codeBlockWidth: currentWidth,
+						});
+						this.plugin.noteWidthManager.applyWidthForLeaf();
+						this.display();
+					});
 				});
 
+			// Code block width value
+			{
+				const unit = this.plugin.settingsManager.getCodeBlockWidthUnit();
+				const config = this.plugin.settingsManager.getUnitConfig(unit);
+
+				new Setting(containerEl)
+					.setName(t("settings.code_block_width.name"))
+					.setDesc(t("settings.code_block_width.desc", { unit, min: config.min, max: config.max }))
+					.addText((text) =>
+						text
+							.setPlaceholder(config.defaultValue.toString())
+							.setValue(this.plugin.settingsManager.getCodeBlockWidth().toString())
+							.onChange(async (value) =>
+							{
+								let width = parseInt(value);
+
+								if (value === "" || value.trim() === "")
+								{
+									return;
+								}
+								else if (isNaN(width))
+								{
+									width = config.defaultValue;
+									text.setValue(config.defaultValue.toString());
+								}
+								else if (width < config.min)
+								{
+									width = config.min;
+									text.setValue(config.min.toString());
+								}
+								else if (width > config.max)
+								{
+									width = config.max;
+									text.setValue(config.max.toString());
+								}
+
+								await this.plugin.settingsManager.saveSettings({
+									...this.plugin.settingsManager.settings,
+									codeBlockWidth: width,
+								});
+								this.plugin.noteWidthManager.applyWidthForLeaf();
+							})
+					);
 			}
+
+			// Mode toggles
+			const modes = this.plugin.settingsManager.getCodeBlockWidthModes();
+
+			new Setting(containerEl)
+				.setName(t("settings.reading_mode.name"))
+				.setDesc(t("settings.reading_mode.desc"))
+				.addToggle((cb: ToggleComponent) =>
+				{
+					cb.setValue(modes.reading);
+					cb.onChange(async (value: boolean) =>
+					{
+						const updated = { ...this.plugin.settingsManager.settings.codeBlockWidthModes, reading: value };
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							codeBlockWidthModes: updated,
+						});
+						this.plugin.noteWidthManager.applyWidthForLeaf();
+					});
+				});
+
+			new Setting(containerEl)
+				.setName(t("settings.source_mode.name"))
+				.setDesc(t("settings.source_mode.desc"))
+				.addToggle((cb: ToggleComponent) =>
+				{
+					cb.setValue(modes.source);
+					cb.onChange(async (value: boolean) =>
+					{
+						const updated = { ...this.plugin.settingsManager.settings.codeBlockWidthModes, source: value };
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							codeBlockWidthModes: updated,
+						});
+						this.plugin.noteWidthManager.applyWidthForLeaf();
+					});
+				});
+
+			new Setting(containerEl)
+				.setName(t("settings.live_preview.name"))
+				.setDesc(t("settings.live_preview.desc"))
+				.addToggle((cb: ToggleComponent) =>
+				{
+					cb.setValue(modes.livePreview);
+					cb.onChange(async (value: boolean) =>
+					{
+						const updated = { ...this.plugin.settingsManager.settings.codeBlockWidthModes, livePreview: value };
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							codeBlockWidthModes: updated,
+						});
+						this.plugin.noteWidthManager.applyWidthForLeaf();
+					});
+				});
 		}
 
 		// Donation button
 		containerEl.appendChild(this.donationButton.createDonationButton(containerEl));
+
+		// Version info
+		const versionEl = containerEl.createEl("div");
+		versionEl.style.textAlign = "center";
+		versionEl.style.marginTop = "20px";
+		versionEl.style.fontSize = "11px";
+		versionEl.style.color = "var(--text-muted)";
+		versionEl.setText(`${PLUGIN_NAME} v${this.plugin.manifest.version}`);
 	}
 }

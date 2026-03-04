@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bug reporting guidelines
+    url: https://github.com/0skater0/obsidian-custom-note-width#reporting-bugs
+    about: Please read the bug reporting guidelines before opening an issue.
+  - name: Theme compatibility
+    url: https://github.com/0skater0/obsidian-custom-note-width#theme-compatibility
+    about: Check if your theme is compatible before reporting a theme-related issue.

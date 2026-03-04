@@ -12,10 +12,6 @@ node_modules
 # They should be uploaded to GitHub releases instead.
 main.js
 
-# Don't include eslint stuff
-.eslintignore
-.eslintrc
-
 # Don't include editor configs
 .editorconfig
 
@@ -33,6 +29,7 @@ noteWidthDatabase.json
 .DS_Store
 
 testing
+test-vault
 condition.txt
 
 tsconfig.json
@@ -47,3 +44,7 @@ hotkeys.json
 core-plugins.json
 core-plugins-migration.json
 package-lock.json
+
+temp/
+.claude/
+.gitlab-ci.yml

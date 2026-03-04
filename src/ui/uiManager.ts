@@ -1,78 +1,53 @@
 import CustomNoteWidth from "src/main";
 import { DOM_IDENTIFIERS } from "src/utility/constants";
-import { idSelector } from "src/utility/utilities";
-import { domElementManager } from "src/ui/domElementManager";
+import { WidthUnit } from "src/utility/config";
+import { validateWidthValue } from "src/utility/utilities";
 
 /**
  * Manages and updates the UI elements for the CustomNoteWidth plugin.
  */
 export default class UIManager
 {
-	/** Reference to the slider element. */
-	slider: HTMLInputElement | null = null;
-
-	/** Reference to the text field input element. */
-	textField: HTMLInputElement | null = null;
-
 	/**
-	 * Constructs a new UIManager instance and initializes the UI elements.
+	 * Constructs a new UIManager instance.
 	 * @param plugin - Reference to the CustomNoteWidth plugin.
 	 */
 	constructor(private plugin: CustomNoteWidth)
 	{
-		this.initializeElements();
 	}
 
 	/**
-	 * Initializes the slider and text field elements from the DOM.
-	 */
-	private initializeElements(): void
-	{
-		this.slider = this.getSliderElement();
-		this.textField = this.getTextFieldElement();
-	}
-
-	/**
-	 * Retrieves the slider UI element from the DOM.
+	 * Retrieves the slider UI element directly from the DOM.
+	 * Uses getElementById for reliable, cache-free lookups.
 	 * @returns The slider element or null if not found.
 	 */
 	public getSliderElement(): HTMLInputElement | null
 	{
-		let slider = this.slider;
-		if (!slider)
-		{
-			slider = domElementManager.querySelector(idSelector(DOM_IDENTIFIERS.SLIDER)) as HTMLInputElement;
-			if (!slider)
-			{
-				console.error("Slider element could not be found.");
-				return null;
-			}
-		}
-		return slider;
+		return document.getElementById(DOM_IDENTIFIERS.SLIDER) as HTMLInputElement | null;
 	}
 
 	/**
-	 * Retrieves the text field input UI element from the DOM.
+	 * Retrieves the text field input UI element directly from the DOM.
+	 * Uses getElementById for reliable, cache-free lookups.
 	 * @returns The text field input element or null if not found.
 	 */
 	public getTextFieldElement(): HTMLInputElement | null
 	{
-		let textField = this.textField;
-		if (!textField)
-		{
-			textField = domElementManager.querySelector(idSelector(DOM_IDENTIFIERS.SLIDER_VALUE)) as HTMLInputElement;
-			if (!textField)
-			{
-				console.error("Text field element could not be found.");
-				return null;
-			}
-		}
-		return textField;
+		return document.getElementById(DOM_IDENTIFIERS.SLIDER_VALUE) as HTMLInputElement | null;
+	}
+
+	/**
+	 * Retrieves the unit selector element from the DOM.
+	 * @returns The unit selector element or null if not found.
+	 */
+	public getUnitSelectorElement(): HTMLSelectElement | null
+	{
+		return document.getElementById(DOM_IDENTIFIERS.UNIT_SELECTOR) as HTMLSelectElement | null;
 	}
 
 	/**
 	 * Sets the value for both the slider and text field input elements.
-	 * @param value - The value to set.
+	 * @param value - The numeric value to set.
 	 */
 	public setSliderAndTextField(value: number): void
 	{
@@ -91,17 +66,62 @@ export default class UIManager
 	}
 
 	/**
-	 * Updates the UI and the width of the editor based on the provided width value.
-	 * @param width - The width value.
+	 * Updates the slider's min, max, and step attributes based on the given unit.
+	 * Also updates the text field's min/max if present.
+	 * @param unit - The width unit to configure the slider for.
 	 */
-	public updateUIAndEditorWidth(width: number): void
+	public updateSliderRange(unit: WidthUnit): void
 	{
-		this.plugin.uiManager.setSliderAndTextField(width);
-		this.plugin.noteWidthManager.updateNoteWidthEditorStyle(width);
+		const config = this.plugin.settingsManager.getUnitConfig(unit);
+		const slider = this.getSliderElement();
+		const textField = this.getTextFieldElement();
+
+		if (slider)
+		{
+			slider.min = config.min.toString();
+			slider.max = config.max.toString();
+			slider.step = config.step.toString();
+		}
+
+		if (textField)
+		{
+			textField.min = config.min.toString();
+			textField.max = config.max.toString();
+		}
+	}
+
+	/**
+	 * Sets the unit selector dropdown to the given unit.
+	 * @param unit - The unit to select.
+	 */
+	public setUnitSelector(unit: WidthUnit): void
+	{
+		const selector = this.getUnitSelectorElement();
+		if (selector)
+		{
+			selector.value = unit;
+		}
+	}
+
+	/**
+	 * Gets the currently selected unit from the unit selector.
+	 * Falls back to the default unit from settings if no selector is found.
+	 * @returns The currently selected WidthUnit.
+	 */
+	public getCurrentUnit(): WidthUnit
+	{
+		const selector = this.getUnitSelectorElement();
+		if (selector)
+		{
+			return selector.value as WidthUnit;
+		}
+		return this.plugin.settingsManager.getDefaultWidthUnit();
 	}
 
 	/**
 	 * Updates the UI directly to apply changes made in the settings tab.
+	 * Rebuilds DOM elements and applies the default width from settings.
+	 * Per-note width is re-applied on the next active-leaf-change or layout-change.
 	 */
 	public updateUI(): void
 	{
@@ -110,6 +130,14 @@ export default class UIManager
 		this.plugin.wrapperManager.createWrapper();
 		this.plugin.statusBarManager.setWrapper(this.plugin.wrapperManager.getWrapper());
 		this.plugin.uiElementCreator.createUIElements();
-		this.plugin.noteWidthManager.updateNoteWidthEditorStyle(this.plugin.settingsManager.getWidthPercentage());
+
+		// Apply the default width to reflect settings changes immediately
+		const defaultUnit = this.plugin.settingsManager.getDefaultWidthUnit();
+		const unitConfig = this.plugin.settingsManager.getUnitConfig(defaultUnit);
+		const defaultWv = validateWidthValue({
+			value: this.plugin.settingsManager.getDefaultWidth(),
+			unit: defaultUnit,
+		}, unitConfig);
+		this.plugin.noteWidthManager.updateNoteWidthEditorStyle(defaultWv);
 	}
 }

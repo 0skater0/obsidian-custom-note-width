@@ -1,21 +1,25 @@
 import CustomNoteWidth from "src/main";
-import { PRIORITY_LIST } from "src/utility/constants";
+import { WidthUnit, UnitConfig, UnitRange, UNIT_CONFIGS } from "src/utility/config";
+import { setLocaleOverride } from "src/i18n/i18n";
 
 /**
  * Interface representing the settings structure for CustomNoteWidth.
  */
 export interface CustomNoteWidthSettings
 {
-	widthPercentage: number;
+	language: string;
+	defaultWidth: number;
+	defaultWidthUnit: WidthUnit;
 	sliderWidth: number;
-	defaultNoteWidth: number;
 	yamlKey: string;
 	enableSlider: boolean;
 	enableTextInput: boolean;
-	enableYAMLWidth: boolean;
-	enableSaveWidthIndividually: boolean;
-	enableChangeDefaultNoteWidth: boolean;
-	priorityList: string[];
+	enablePerNoteWidth: boolean;
+	unitRanges: Record<WidthUnit, UnitRange>;
+	enableCodeBlockWidth: boolean;
+	codeBlockWidth: number;
+	codeBlockWidthUnit: WidthUnit;
+	codeBlockWidthModes: { reading: boolean; source: boolean; livePreview: boolean };
 }
 
 /**
@@ -23,20 +27,27 @@ export interface CustomNoteWidthSettings
  */
 export default class SettingsManager
 {
-	settings: CustomNoteWidthSettings;
+	settings!: CustomNoteWidthSettings;
 
 	/** Default settings for the plugin. */
 	DEFAULT_SETTINGS: CustomNoteWidthSettings = {
-		widthPercentage: 36,
+		language: "auto",
+		defaultWidth: 50,
+		defaultWidthUnit: '%',
 		sliderWidth: 85,
-		defaultNoteWidth: 36,
 		yamlKey: "custom-width",
 		enableSlider: true,
 		enableTextInput: true,
-		enableYAMLWidth: true,
-		enableSaveWidthIndividually: true,
-		enableChangeDefaultNoteWidth: false,
-		priorityList: [PRIORITY_LIST.SAVED_NOTE_WIDTH, PRIORITY_LIST.YAML_NOTE_WIDTH]
+		enablePerNoteWidth: true,
+		unitRanges: {
+			'%': { min: 0, max: 100 },
+			'px': { min: 100, max: 4000 },
+			'ch': { min: 10, max: 200 },
+		},
+		enableCodeBlockWidth: false,
+		codeBlockWidth: 800,
+		codeBlockWidthUnit: 'px' as WidthUnit,
+		codeBlockWidthModes: { reading: true, source: true, livePreview: true },
 	};
 
 	/**
@@ -65,12 +76,12 @@ export default class SettingsManager
 	}
 
 	/**
-	 * Retrieves the width percentage setting.
-	 * @returns - The width percentage setting value.
+	 * Retrieves the default width setting.
+	 * @returns - The default width percentage.
 	 */
-	public getWidthPercentage(): number
+	public getDefaultWidth(): number
 	{
-		return this.getSetting("widthPercentage");
+		return this.getSetting("defaultWidth");
 	}
 
 	/**
@@ -110,85 +121,146 @@ export default class SettingsManager
 	}
 
 	/**
-	 * Retrieves the enable save width individually setting.
-	 * @returns - The enable save width individually setting value.
+	 * Retrieves the enable per-note width setting.
+	 * @returns - Whether per-note width via YAML is enabled.
 	 */
-	public getEnableSaveWidthIndividually(): boolean
+	public getEnablePerNoteWidth(): boolean
 	{
-		return this.getSetting("enableSaveWidthIndividually");
+		return this.getSetting("enablePerNoteWidth");
 	}
 
 	/**
-	 * Retrieves the enable change default note width setting.
-	 * @returns - The enable change default note width setting value.
+	 * Retrieves the default width unit setting.
+	 * @returns - The default width unit.
 	 */
-	public getEnableChangeDefaultNoteWidth(): boolean
+	public getDefaultWidthUnit(): WidthUnit
 	{
-		return this.getSetting("enableChangeDefaultNoteWidth");
+		return this.getSetting("defaultWidthUnit");
 	}
 
 	/**
-	 * Retrieves the enable YAML width setting.
-	 * @returns - The enable YAML width setting value.
+	 * Retrieves whether code block width is enabled.
+	 * @returns - Whether code block width is enabled.
 	 */
-	public getEnableYAMLWidth(): boolean
+	public getEnableCodeBlockWidth(): boolean
 	{
-		return this.getSetting("enableYAMLWidth");
+		return this.getSetting("enableCodeBlockWidth");
 	}
 
 	/**
-	 * Asynchronously saves the defaultNoteWidth setting.
-	 * @param defaultNoteWidth - The default note width value to be saved.
+	 * Retrieves the code block width value.
+	 * @returns - The code block width value.
 	 */
-	public getDefaultNoteWidth(): number
+	public getCodeBlockWidth(): number
 	{
-		return this.getSetting("defaultNoteWidth");
+		return this.getSetting("codeBlockWidth");
 	}
 
 	/**
-	 * Retrieves the current priority setting.
-	 * @returns - The current priority setting value.
+	 * Retrieves the code block width unit.
+	 * @returns - The code block width unit.
 	 */
-	public getCurrentPriority(): string
+	public getCodeBlockWidthUnit(): WidthUnit
 	{
-		return this.getSetting("priorityList")[0];
+		return this.getSetting("codeBlockWidthUnit");
 	}
 
 	/**
-	 * Retrieves the priority list setting.
-	 * @returns - The priority list setting value.
+	 * Retrieves the code block width mode flags.
+	 * @returns - Object with reading, source, livePreview booleans.
 	 */
-	public getPriorityList(): string[]
+	public getCodeBlockWidthModes(): { reading: boolean; source: boolean; livePreview: boolean }
 	{
-		return this.getSetting("priorityList");
+		return this.getSetting("codeBlockWidthModes");
 	}
 
 	/**
-	 * Asynchronously saves the default note width setting.
-	 * @param defaultNoteWidth - The default note width value to be saved.
+	 * Retrieves the language setting.
+	 * @returns - The language setting value ("auto", "en", "de").
 	 */
-	public async saveDefaultNoteWidth(defaultNoteWidth: number): Promise<void>
+	public getLanguage(): string
 	{
-		this.settings.defaultNoteWidth = defaultNoteWidth;
-		await this.plugin.saveData(this.settings);
+		return this.getSetting("language");
 	}
 
 	/**
-	 * Asynchronously saves the widthPercentage setting.
-	 * @param widthPercentage - The width percentage value to be saved.
+	 * Returns the effective UnitConfig for a given unit, merging
+	 * the hardcoded defaults with the user's custom min/max ranges.
+	 * @param unit - The width unit.
+	 * @returns The effective UnitConfig.
 	 */
-	public async saveWidthPercentage(widthPercentage: number): Promise<void>
+	public getUnitConfig(unit: WidthUnit): UnitConfig
 	{
-		this.settings.widthPercentage = widthPercentage;
-		await this.plugin.saveData(this.settings);
+		const base = UNIT_CONFIGS[unit];
+		const ranges = this.settings.unitRanges?.[unit] ?? { min: base.min, max: base.max };
+		return {
+			...base,
+			min: ranges.min,
+			max: ranges.max,
+			maxInputLength: Math.max(
+				ranges.max.toString().length,
+				ranges.min.toString().length,
+			),
+		};
 	}
 
 	/**
-	 * Asynchronously loads the settings by combining the default settings with the loaded data from the plugin.
+	 * Asynchronously loads the settings, migrating from old format if necessary.
 	 */
 	public async loadSettings(): Promise<void>
 	{
-		this.settings = Object.assign({}, this.DEFAULT_SETTINGS, await this.plugin.loadData());
+		const loaded = await this.plugin.loadData();
+
+		// Migrate old settings format (10 settings) to new format (7 settings)
+		if (loaded && ('widthPercentage' in loaded || 'defaultNoteWidth' in loaded || 'enableSaveWidthIndividually' in loaded))
+		{
+			loaded.defaultWidth = loaded.defaultNoteWidth ?? loaded.widthPercentage ?? 100;
+			loaded.enablePerNoteWidth = (loaded.enableSaveWidthIndividually || loaded.enableYAMLWidth) ?? true;
+			loaded.defaultWidthUnit = '%';
+
+			// Clean up old keys
+			delete loaded.widthPercentage;
+			delete loaded.defaultNoteWidth;
+			delete loaded.enableSaveWidthIndividually;
+			delete loaded.enableYAMLWidth;
+			delete loaded.enableChangeDefaultNoteWidth;
+			delete loaded.priorityList;
+		}
+
+		// Ensure defaultWidthUnit exists (migration from v1.x without units)
+		if (loaded && !('defaultWidthUnit' in loaded))
+		{
+			loaded.defaultWidthUnit = '%';
+		}
+
+		// Ensure unitRanges exists (migration from versions without custom ranges)
+		if (loaded && !('unitRanges' in loaded))
+		{
+			loaded.unitRanges = {
+				'%': { min: 0, max: 100 },
+				'px': { min: 100, max: 4000 },
+				'ch': { min: 10, max: 200 },
+			};
+		}
+
+		// Ensure code block width settings exist (migration from versions without code block width)
+		if (loaded && !('enableCodeBlockWidth' in loaded))
+		{
+			loaded.enableCodeBlockWidth = false;
+			loaded.codeBlockWidth = 800;
+			loaded.codeBlockWidthUnit = 'px';
+		}
+
+		// Ensure code block width modes exist (migration from versions without mode selection)
+		if (loaded && !('codeBlockWidthModes' in loaded))
+		{
+			loaded.codeBlockWidthModes = { reading: true, source: true, livePreview: true };
+		}
+
+		this.settings = Object.assign({}, this.DEFAULT_SETTINGS, loaded);
+
+		// Apply locale override from saved language setting
+		setLocaleOverride(this.settings.language === "auto" ? null : this.settings.language);
 	}
 
 	/**
@@ -201,11 +273,4 @@ export default class SettingsManager
 		await this.plugin.saveData(settings);
 	}
 
-	/**
-	 * Asynchronously resets the editor & saved width to the default value.
-	 */
-	public async resetEditorWidth(): Promise<void>
-	{
-		this.plugin.noteWidthManager.removeNoteWidthEditorStyle();
-	}
 }

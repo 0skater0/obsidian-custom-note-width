@@ -1,5 +1,6 @@
 import CustomNoteWidth from "src/main";
 import { DOM_IDENTIFIERS } from "src/utility/constants";
+import { VALID_UNITS } from "src/utility/config";
 
 export default class UIElementCreator
 {
@@ -14,7 +15,7 @@ export default class UIElementCreator
 	}
 
 	/**
-	 * Creates the slider UI element.
+	 * Creates the slider UI element with range based on the current default unit.
 	 * @returns The created slider element.
 	 */
 	private createSliderElement(): HTMLInputElement
@@ -27,15 +28,42 @@ export default class UIElementCreator
 			return slider;
 		}
 
+		const unit = this.plugin.settingsManager.getDefaultWidthUnit();
+		const unitConfig = this.plugin.settingsManager.getUnitConfig(unit);
+		const defaultWidth = this.plugin.settingsManager.getDefaultWidth();
+
 		const slider = document.createElement("input");
 		slider.id = DOM_IDENTIFIERS.SLIDER;
 		slider.type = "range";
-		slider.min = "0";
-		slider.max = "100";
-		slider.value = this.plugin.settingsManager.getWidthPercentage().toString();
+		slider.min = unitConfig.min.toString();
+		slider.max = unitConfig.max.toString();
+		slider.step = unitConfig.step.toString();
+		slider.value = defaultWidth.toString();
 		slider.style.width = this.plugin.settingsManager.getSliderWidth() + "px";
 
 		return slider;
+	}
+
+	/**
+	 * Creates a unit selector dropdown for the status bar.
+	 * @returns The created select element.
+	 */
+	private createUnitSelector(): HTMLSelectElement
+	{
+		const select = document.createElement("select");
+		select.id = DOM_IDENTIFIERS.UNIT_SELECTOR;
+
+		for (const unit of VALID_UNITS)
+		{
+			const option = document.createElement("option");
+			option.value = unit;
+			option.textContent = unit;
+			select.appendChild(option);
+		}
+
+		select.value = this.plugin.settingsManager.getDefaultWidthUnit();
+
+		return select;
 	}
 
 	/**
@@ -52,13 +80,16 @@ export default class UIElementCreator
 		{
 			if (isInput)
 			{
+				const unit = this.plugin.settingsManager.getDefaultWidthUnit();
+				const unitConfig = this.plugin.settingsManager.getUnitConfig(unit);
+
 				text = document.createElement("input");
 				(text as HTMLInputElement).type = "number";
 				(text as HTMLInputElement).value = slider.value;
-				(text as HTMLInputElement).min = "0";
-				(text as HTMLInputElement).max = "100";
+				(text as HTMLInputElement).min = unitConfig.min.toString();
+				(text as HTMLInputElement).max = unitConfig.max.toString();
 				text.style.height = "160%";
-				text.style.width = "38px";
+				text.style.width = "50px";
 				text.style.fontSize = "108%";
 			} else
 			{
@@ -129,17 +160,34 @@ export default class UIElementCreator
 
 		if (this.plugin.settingsManager.getEnableTextInput() && !slider)
 		{
+			const textUnit = this.plugin.settingsManager.getDefaultWidthUnit();
+			const textUnitConfig = this.plugin.settingsManager.getUnitConfig(textUnit);
 			const dummySlider = document.createElement("input");
-			dummySlider.value = this.plugin.settingsManager.getWidthPercentage().toString();
+			dummySlider.value = this.plugin.settingsManager.getDefaultWidth().toString();
+			dummySlider.min = textUnitConfig.min.toString();
+			dummySlider.max = textUnitConfig.max.toString();
 			sliderValueText = this.createAndConfigureText(dummySlider);
 		}
 
-		if (slider && sliderValueText)
+		// Create unit selector
+		const unitSelector = this.createUnitSelector();
+		this.plugin.eventHandler.handleUnitSelectorEvent(unitSelector);
+
+		// Append elements to wrapper
+		const elements: HTMLElement[] = [];
+		if (slider)
 		{
-			this.plugin.wrapperManager.appendToWrapper(slider, sliderValueText);
-		} else if (sliderValueText)
+			elements.push(slider);
+		}
+		if (sliderValueText)
 		{
-			this.plugin.wrapperManager.appendToWrapper(sliderValueText);
+			elements.push(sliderValueText);
+		}
+		elements.push(unitSelector);
+
+		if (elements.length > 0)
+		{
+			this.plugin.wrapperManager.appendToWrapper(...elements);
 		}
 
 		this.plugin.statusBarManager.appendToStatusBar();

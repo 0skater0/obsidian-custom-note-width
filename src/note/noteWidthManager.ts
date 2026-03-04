@@ -1,17 +1,29 @@
-import { App } from "obsidian";
+import { App, MarkdownView, TFile, WorkspaceLeaf } from "obsidian";
 import CustomNoteWidth from "src/main";
 import ProgressBarModal from "src/modals/progressBarModal";
-import { DOM_IDENTIFIERS, NOTE_ID_KEY, PRIORITY_LIST, PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT } from "src/utility/constants";
-import { calculateNoteWidth, getActiveEditorDiv, getEditorMode, validateWidth } from "src/utility/utilities";
-import UUIDGenerator from "src/utility/uuidGenerator";
+import { t } from "src/i18n/i18n";
+import { WidthValue, parseWidthValue, widthValueToCss, formatWidthForYaml } from "src/utility/config";
+import { getActiveEditorDiv, getActiveMarkdownView, getEditorDivForView, validateWidthValue } from "src/utility/utilities";
 
 /**
  * Manages the note width functionalities.
+ *
+ * Uses a dual strategy to eliminate visual flash on tab switch:
+ * 1. A persistent <style> element with per-leaf CSS rules (survives tab switches)
+ * 2. Inline styles with !important set synchronously on leaf change
+ *
+ * Width is resolved synchronously from Obsidian's metadataCache (YAML-only).
  */
 export default class NoteWidthManager
 {
-	/** Element for injecting custom styles. */
-	styleElement: HTMLStyleElement | null = null;
+	/** Persistent <style> element in <head> for per-leaf width rules. */
+	private readonly styleElement: HTMLStyleElement;
+	/** Maps leaf data-cnw-id to CSS value (e.g., "500px"). */
+	private leafRules: Map<string, string> = new Map();
+	/** Maps leaf data-cnw-id to code block CSS value. */
+	private leafCodeBlockRules: Map<string, string> = new Map();
+	/** Counter for generating unique leaf IDs. */
+	private leafIdCounter: number = 0;
 
 	/**
 	 * Constructs a new NoteWidthManager instance.
@@ -20,456 +32,310 @@ export default class NoteWidthManager
 	 */
 	constructor(private app: App, private plugin: CustomNoteWidth)
 	{
-		// Create a new style element and append it to the head of the document
-		this.styleElement = document.createElement("style");
-		this.styleElement.id = DOM_IDENTIFIERS.CUSTOM_NOTE_WIDTH;
-		document.getElementsByTagName("head")[0].appendChild(this.styleElement);
+		this.styleElement = document.createElement('style');
+		this.styleElement.id = 'custom-note-width-rules';
+		document.head.appendChild(this.styleElement);
 	}
 
 	/**
-	 * Removes the custom editor style, if it exists.
+	 * Ensures a view's container element has a data-cnw-id attribute and returns it.
+	 * @param view - The MarkdownView to get/assign an ID for.
+	 * @returns The unique leaf ID string.
+	 */
+	private getLeafId(view: MarkdownView): string
+	{
+		const el = view.containerEl;
+		let id = el.getAttribute('data-cnw-id');
+		if (!id)
+		{
+			id = `cnw-${this.leafIdCounter++}`;
+			el.setAttribute('data-cnw-id', id);
+		}
+		return id;
+	}
+
+	/**
+	 * Rebuilds the <style> element content from all active leaf rules.
+	 */
+	private rebuildStylesheet(): void
+	{
+		const rules: string[] = [];
+		const codeBlockEnabled = this.plugin.settingsManager.getEnableCodeBlockWidth();
+
+		this.leafRules.forEach((cssValue, leafId) =>
+		{
+			const codeBlockCss = codeBlockEnabled ? this.leafCodeBlockRules.get(leafId) : null;
+			let rule = `.workspace-leaf-content[data-cnw-id="${leafId}"] { --file-line-width: ${cssValue} !important;`;
+			if (codeBlockCss)
+			{
+				rule += ` --cnw-code-block-width: ${codeBlockCss};`;
+			}
+			rule += ` }`;
+			rules.push(rule);
+		});
+
+		if (codeBlockEnabled && this.leafCodeBlockRules.size > 0)
+		{
+			const modes = this.plugin.settingsManager.getCodeBlockWidthModes();
+			const cbProps = ` width: var(--cnw-code-block-width) !important;`
+				+ ` max-width: var(--cnw-code-block-width) !important;`
+				+ ` box-sizing: border-box !important;`;
+
+			// Reading mode: target <pre> elements in preview view
+			if (modes.reading)
+			{
+				rules.push(`.workspace-leaf-content[data-cnw-id] .markdown-preview-view pre {${cbProps} }`);
+			}
+
+			// Source / Live Preview mode: target CodeMirror code block lines
+			if (modes.source && modes.livePreview)
+			{
+				rules.push(`.workspace-leaf-content[data-cnw-id] .cm-line.HyperMD-codeblock {${cbProps} }`);
+			}
+			else if (modes.source)
+			{
+				rules.push(`.workspace-leaf-content[data-cnw-id] .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-codeblock {${cbProps} }`);
+			}
+			else if (modes.livePreview)
+			{
+				rules.push(`.workspace-leaf-content[data-cnw-id] .markdown-source-view.is-live-preview .cm-line.HyperMD-codeblock {${cbProps} }`);
+			}
+		}
+
+		this.styleElement.textContent = rules.join('\n');
+	}
+
+	/**
+	 * Synchronously resolves the correct WidthValue for a given file
+	 * by reading from Obsidian's metadataCache (YAML frontmatter only).
+	 *
+	 * @param file - The file to resolve width for.
+	 * @returns The WidthValue for the file.
+	 */
+	public resolveWidthForFile(file: TFile): WidthValue
+	{
+		const defaultWidth = this.plugin.settingsManager.getDefaultWidth();
+		const defaultUnit = this.plugin.settingsManager.getDefaultWidthUnit();
+		const defaultWv: WidthValue = { value: defaultWidth, unit: defaultUnit };
+
+		if (!this.plugin.settingsManager.getEnablePerNoteWidth())
+		{
+			return defaultWv;
+		}
+
+		const yamlKey = this.plugin.settingsManager.getYAMLKey();
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+
+		if (!frontmatter)
+		{
+			return defaultWv;
+		}
+
+		const rawValue = frontmatter[yamlKey];
+		const parsed = parseWidthValue(rawValue, defaultUnit);
+
+		if (parsed)
+		{
+			const unitConfig = this.plugin.settingsManager.getUnitConfig(parsed.unit);
+			return validateWidthValue(parsed, unitConfig);
+		}
+
+		return defaultWv;
+	}
+
+	/**
+	 * Synchronously applies the correct width for a leaf by resolving
+	 * the width from metadata and calculating the CSS value.
+	 * Used on tab switch, resize, and layout change events.
+	 *
+	 * @param leaf - The workspace leaf to apply width for (defaults to active leaf).
+	 */
+	public applyWidthForLeaf(leaf?: WorkspaceLeaf): void
+	{
+		const view = (leaf?.view instanceof MarkdownView)
+			? leaf.view
+			: getActiveMarkdownView(this.app);
+
+		if (!view || !view.file) return;
+
+		const wv = this.resolveWidthForFile(view.file);
+		const editorMode = view.getMode();
+		const editorDiv = getEditorDivForView(view, editorMode);
+		if (!editorDiv) return;
+
+		const cssValue = widthValueToCss(wv, editorDiv);
+		if (!cssValue) return;
+
+		const leafId = this.getLeafId(view);
+
+		// Strategy 1: Inline style with !important (immediate, highest priority)
+		view.containerEl.style.setProperty('--file-line-width', cssValue, 'important');
+
+		// Strategy 2: Update stylesheet rule (persistent across tab switches)
+		this.leafRules.set(leafId, cssValue);
+
+		// Code block width (global setting, computed per-leaf for % mode)
+		this.applyCodeBlockWidth(view, editorDiv, leafId);
+
+		this.rebuildStylesheet();
+
+		// Update slider UI to reflect the note's width and unit
+		this.plugin.uiManager.setSliderAndTextField(wv.value);
+		this.plugin.uiManager.updateSliderRange(wv.unit);
+		this.plugin.uiManager.setUnitSelector(wv.unit);
+	}
+
+	/**
+	 * Removes all custom width styles from all views and clears leaf rules.
 	 */
 	public removeNoteWidthEditorStyle(): void
 	{
-		if (!this.styleElement) return;
-
-		this.styleElement.remove();
-		this.styleElement = null;
+		this.leafRules.clear();
+		this.leafCodeBlockRules.clear();
+		this.styleElement.textContent = '';
+		this.app.workspace.iterateAllLeaves((leaf) =>
+		{
+			if (leaf.view instanceof MarkdownView)
+			{
+				leaf.view.containerEl.removeAttribute('data-cnw-id');
+				leaf.view.containerEl.style.removeProperty('--file-line-width');
+				leaf.view.containerEl.style.removeProperty('--cnw-code-block-width');
+			}
+		});
 	}
 
 	/**
-	 * Updates the custom editor style with a new width percentage, if it exists.
-	 * @param widthPercentage - The width percentage to be applied.
+	 * Removes the <style> element from the DOM. Call on plugin unload.
 	 */
-	public async updateNoteWidthEditorStyle(widthPercentage: number): Promise<void>
+	public destroy(): void
 	{
-		if (!this.styleElement) throw "custom-note-width style element not found!";
+		this.removeNoteWidthEditorStyle();
+		this.styleElement.remove();
+	}
 
-		const editorMode = getEditorMode();
-		if (editorMode === null) return;
+	/**
+	 * Applies the code block width CSS variable for a given leaf.
+	 * When enabled, computes and sets --cnw-code-block-width.
+	 * When disabled, removes the variable.
+	 * @param view - The MarkdownView to apply code block width for.
+	 * @param editorDiv - The editor DOM element for width calculations.
+	 * @param leafId - The unique leaf identifier.
+	 */
+	private applyCodeBlockWidth(view: MarkdownView, editorDiv: Element, leafId: string): void
+	{
+		if (!this.plugin.settingsManager.getEnableCodeBlockWidth())
+		{
+			view.containerEl.style.removeProperty('--cnw-code-block-width');
+			this.leafCodeBlockRules.delete(leafId);
+			return;
+		}
 
+		const cbWv: WidthValue = {
+			value: this.plugin.settingsManager.getCodeBlockWidth(),
+			unit: this.plugin.settingsManager.getCodeBlockWidthUnit(),
+		};
+		const cbCssValue = widthValueToCss(cbWv, editorDiv);
+		if (cbCssValue)
+		{
+			view.containerEl.style.setProperty('--cnw-code-block-width', cbCssValue);
+			this.leafCodeBlockRules.set(leafId, cbCssValue);
+		}
+	}
+
+	/**
+	 * Updates the custom editor style with a new WidthValue on the active view.
+	 * Sets both an inline style and a stylesheet rule for the leaf.
+	 * Used for user-driven width changes (slider, commands).
+	 * @param wv - The WidthValue to be applied.
+	 */
+	public updateNoteWidthEditorStyle(wv: WidthValue): void
+	{
+		const view = getActiveMarkdownView(this.app);
+		if (!view) return;
+
+		const editorMode = view.getMode();
 		const editorDiv = getActiveEditorDiv(this.app, editorMode);
 		if (!editorDiv) return;
 
-		const noteWidth = await calculateNoteWidth(widthPercentage, editorDiv);
-		if (!noteWidth)
+		const cssValue = widthValueToCss(wv, editorDiv);
+		if (!cssValue)
 		{
 			console.error("Something went wrong while changing the note width!", new Error().stack);
 			return;
 		}
 
-		this.styleElement.innerText = `body { --file-line-width: ${noteWidth}px;}`;
+		const leafId = this.getLeafId(view);
+
+		// Set inline style with !important for immediate effect
+		view.containerEl.style.setProperty('--file-line-width', cssValue, 'important');
+
+		// Update stylesheet rule for persistence across tab switches
+		this.leafRules.set(leafId, cssValue);
+
+		// Code block width
+		this.applyCodeBlockWidth(view, editorDiv, leafId);
+
+		this.rebuildStylesheet();
 	}
 
 	/**
-	 * Changes the width of all notes.
-	 * @param width - The width to be applied.
+	 * Changes the width of all notes via YAML frontmatter.
+	 * @param wv - The WidthValue to be applied.
 	 */
-	public async changeAllNoteWidth(width: number): Promise<void>
+	public async changeAllNoteWidth(wv: WidthValue): Promise<void>
 	{
-		const CUSTOM_WIDTH_YAML_KEY = this.plugin.settingsManager.getYAMLKey();
-		let noteWidth = validateWidth(width);
-		const isSaveWidthIndividuallyEnabled = this.plugin.settingsManager.getEnableSaveWidthIndividually();
-		const isYAMLWidthEnabled = this.plugin.settingsManager.getEnableYAMLWidth();
+		const unitConfig = this.plugin.settingsManager.getUnitConfig(wv.unit);
+		const validated = validateWidthValue(wv, unitConfig);
 
-		if (isSaveWidthIndividuallyEnabled && isYAMLWidthEnabled)
+		if (this.plugin.settingsManager.getEnablePerNoteWidth())
 		{
-			this.plugin.database.updateAllNotesWidth(width);
-			const progressBarModal = new ProgressBarModal(this.app, PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT);
+			const yamlKey = this.plugin.settingsManager.getYAMLKey();
+			const yamlValue = formatWidthForYaml(validated);
+			const progressBarModal = new ProgressBarModal(this.app, t("progress.changing_values"));
 			progressBarModal.display();
-
-			await this.plugin.yamlFrontMatterProcessor.updateAllYamlValues(CUSTOM_WIDTH_YAML_KEY, noteWidth, progressBarModal);
-
+			await this.plugin.yamlFrontMatterProcessor.updateAllYamlValues(yamlKey, yamlValue, progressBarModal);
 			progressBarModal.close();
 		}
-		else if (isYAMLWidthEnabled)
-		{
-			const progressBarModal = new ProgressBarModal(this.app, PROGRESS_BAR_MODAL_VALUE_TITLE_TEXT);
-			progressBarModal.display();
 
-			await this.plugin.yamlFrontMatterProcessor.updateAllYamlValues(CUSTOM_WIDTH_YAML_KEY, noteWidth, progressBarModal);
-
-			progressBarModal.close();
-		}
-		else if (isSaveWidthIndividuallyEnabled)
-		{
-			this.plugin.database.updateAllNotesWidth(width);
-		}
-
-		this.updateNoteWidthEditorStyle(width);
-		this.plugin.uiManager.setSliderAndTextField(width);
-		await this.plugin.settingsManager.saveWidthPercentage(width);
+		this.updateNoteWidthEditorStyle(validated);
+		this.plugin.uiManager.setSliderAndTextField(validated.value);
+		await this.plugin.settingsManager.saveSettings({
+			...this.plugin.settingsManager.settings,
+			defaultWidth: validated.value,
+			defaultWidthUnit: validated.unit,
+		});
 	}
 
 	/**
 	 * Updates the default width of a note.
-	 * @param width - The new width to set for the note.
-	 * @returns A promise which resolves when the operation completes.
+	 * @param wv - The new WidthValue to set as default.
 	 */
-	public async changeDefaultNoteWidth(width: number): Promise<void>
+	public async changeDefaultNoteWidth(wv: WidthValue): Promise<void>
 	{
-		await this.plugin.settingsManager.saveDefaultNoteWidth(width);
+		await this.plugin.settingsManager.saveSettings({
+			...this.plugin.settingsManager.settings,
+			defaultWidth: wv.value,
+			defaultWidthUnit: wv.unit,
+		});
 	}
 
 	/**
-	 * Updates the width of the current note based on settings and available note ID.
-	 * @param width - The new width to set for the current note.
-	 * @returns A promise which resolves when the operation completes.
+	 * Updates the width of the current note via YAML frontmatter.
+	 * @param wv - The new WidthValue to set for the current note.
 	 */
-	public async changeNoteWidth(width: number): Promise<void>
+	public async changeNoteWidth(wv: WidthValue): Promise<void>
 	{
-		let noteWidth = validateWidth(width);
-		const CUSTOM_WIDTH_YAML_KEY = this.plugin.settingsManager.getYAMLKey();
-		const yamlProcessor = this.plugin.yamlFrontMatterProcessor;
-		const isSaveWidthIndividuallyEnabled = this.plugin.settingsManager.getEnableSaveWidthIndividually();
-		const isYAMLWidthEnabled = this.plugin.settingsManager.getEnableYAMLWidth();
-		const hasNoteID = await yamlProcessor.hasYamlKey(NOTE_ID_KEY);
-		const hasCustomKey = await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY);
+		const unitConfig = this.plugin.settingsManager.getUnitConfig(wv.unit);
+		const validated = validateWidthValue(wv, unitConfig);
 
-		if (isSaveWidthIndividuallyEnabled && isYAMLWidthEnabled)
+		if (this.plugin.settingsManager.getEnablePerNoteWidth())
 		{
-			if (hasNoteID)
-			{
-				const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
-
-				if (this.plugin.database.noteExists(noteID))
-				{
-					this.plugin.database.addNote(noteID, noteWidth);
-				}
-				else
-				{
-					let noteWidth = validateWidth(width);
-					this.plugin.database.addNote(noteID, noteWidth);
-				}
-			} else if (hasCustomKey)
-			{
-				yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, noteWidth);
-			}
-			else
-			{
-				yamlProcessor.setYamlValue(NOTE_ID_KEY, UUIDGenerator.getUniqueUUID(this.plugin.database));
-				this.plugin.database.addNote(UUIDGenerator.getUniqueUUID(this.plugin.database), noteWidth);
-			}
-		}
-		else if (isSaveWidthIndividuallyEnabled)
-		{
-			if (hasNoteID)
-			{
-				const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
-
-				if (this.plugin.database.noteExists(noteID))
-				{
-					this.plugin.database.addNote(noteID, noteWidth);
-				}
-				else
-				{
-					let noteWidth = validateWidth(width);
-					this.plugin.database.addNote(noteID, noteWidth);
-				}
-			}
-			else
-			{
-				this.plugin.yamlFrontMatterProcessor.setYamlValue(NOTE_ID_KEY, UUIDGenerator.getUniqueUUID(this.plugin.database));
-				this.plugin.database.addNote(UUIDGenerator.getUniqueUUID(this.plugin.database), noteWidth);
-			}
-		}
-		else if (isYAMLWidthEnabled)
-		{
-			yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, noteWidth);
+			const yamlKey = this.plugin.settingsManager.getYAMLKey();
+			const yamlValue = formatWidthForYaml(validated);
+			await this.plugin.yamlFrontMatterProcessor.setYamlValue(yamlKey, yamlValue);
 		}
 
-		this.plugin.uiManager.setSliderAndTextField(noteWidth);
-		await this.updateNoteWidthEditorStyle(noteWidth);
-		await this.plugin.settingsManager.saveWidthPercentage(noteWidth);
-	}
-
-	/**
-	 * Updates the note width based on user settings.
-	 */
-	public async refreshNoteWidth(isUserInputTriggered: boolean): Promise<void>
-	{
-		const yamlProcessor = this.plugin.yamlFrontMatterProcessor;
-		const uiManager = this.plugin.uiManager;
-		const database = this.plugin.database;
-		const DEFAULT_WIDTH = this.plugin.settingsManager.getDefaultNoteWidth();
-		const isSaveWidthIndividuallyEnabled = this.plugin.settingsManager.getEnableSaveWidthIndividually();
-		const isYAMLWidthEnabled = this.plugin.settingsManager.getEnableYAMLWidth();
-		const currentWidthPercentage = this.plugin.settingsManager.getWidthPercentage();
-		const CUSTOM_WIDTH_YAML_KEY = this.plugin.settingsManager.getYAMLKey();
-		const CURRENT_PRIORITY = this.plugin.settingsManager.getCurrentPriority();
-
-		if (!isUserInputTriggered)
-		{
-			if (!isSaveWidthIndividuallyEnabled && !isYAMLWidthEnabled)
-			{
-				uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-				return;
-			}
-
-			if (isSaveWidthIndividuallyEnabled && isYAMLWidthEnabled)
-			{
-				if (!yamlProcessor.hasYamlFrontMatter())
-				{
-					uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-					return;
-				}
-
-				if (CURRENT_PRIORITY === PRIORITY_LIST.SAVED_NOTE_WIDTH)
-				{
-					if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
-					{
-						const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
-
-						if (database.noteExists(noteID))
-						{
-							let width = database.getNoteWidth(noteID);
-							if (width !== null)
-							{
-								width = validateWidth(width);
-								uiManager.updateUIAndEditorWidth(width);
-								return;
-							}
-						}
-						else
-						{
-							if (await yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
-							{
-								yamlProcessor.removeYamlFrontMatter();
-							}
-							else
-							{
-								yamlProcessor.removeYamlKey(NOTE_ID_KEY);
-							}
-
-							uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-							return;
-						}
-					}
-					else if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
-					{
-						let width = await yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
-						if (width !== null)
-						{
-							width = validateWidth(width);
-							yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, width);
-							uiManager.updateUIAndEditorWidth(await width);
-							return;
-						}
-					} else
-					{
-						uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-						return;
-					}
-				}
-				else if (CURRENT_PRIORITY === PRIORITY_LIST.YAML_NOTE_WIDTH)
-				{
-					if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
-					{
-						let width = await yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
-						if (width !== null)
-						{
-							width = validateWidth(width);
-							yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, width);
-							uiManager.updateUIAndEditorWidth(await width);
-							return;
-						}
-					}
-					else if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
-					{
-						const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
-
-						if (database.noteExists(noteID))
-						{
-							let width = database.getNoteWidth(noteID);
-							if (width !== null)
-							{
-								width = validateWidth(width);
-								uiManager.updateUIAndEditorWidth(width);
-								return;
-							}
-						}
-						else
-						{
-							if (await yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
-							{
-								yamlProcessor.removeYamlFrontMatter();
-							}
-							else
-							{
-								yamlProcessor.removeYamlKey(NOTE_ID_KEY);
-							}
-
-							uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-							return;
-						}
-					}
-					else
-					{
-						uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-						return;
-					}
-				}
-			}
-			else if (isSaveWidthIndividuallyEnabled)
-			{
-				if (!yamlProcessor.hasYamlFrontMatter())
-				{
-					uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-					return;
-				}
-
-				if (!yamlProcessor.hasYamlKey(NOTE_ID_KEY))
-				{
-					uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-					return;
-				}
-				else
-				{
-					const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
-
-					if (database.noteExists(noteID))
-					{
-						let width = database.getNoteWidth(noteID);
-						if (width !== null)
-						{
-							width = validateWidth(width);
-							uiManager.updateUIAndEditorWidth(width);
-							return;
-						}
-					}
-					else
-					{
-						if (await yamlProcessor.isOnlyYamlKey(NOTE_ID_KEY))
-						{
-							yamlProcessor.removeYamlFrontMatter();
-						}
-						else
-						{
-							yamlProcessor.removeYamlKey(NOTE_ID_KEY);
-						}
-
-						uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-						return;
-					}
-				}
-			}
-			else if (isYAMLWidthEnabled)
-			{
-				if (!yamlProcessor.hasYamlFrontMatter())
-				{
-					uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-					return;
-				}
-
-				if (!yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
-				{
-					uiManager.updateUIAndEditorWidth(DEFAULT_WIDTH);
-					return;
-				}
-				else
-				{
-					let width = await yamlProcessor.getYamlValue(CUSTOM_WIDTH_YAML_KEY);
-					if (width !== null)
-					{
-						width = validateWidth(width);
-						yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, width);
-						uiManager.updateUIAndEditorWidth(await width);
-						return;
-					}
-				}
-			}
-		}
-		else
-		{
-			this.plugin.eventHandler.isUserInputTriggered = false;
-
-			if (!isSaveWidthIndividuallyEnabled && !isYAMLWidthEnabled)
-			{
-				this.plugin.noteWidthManager.updateNoteWidthEditorStyle(currentWidthPercentage);
-				return;
-			}
-
-			if (isSaveWidthIndividuallyEnabled && isYAMLWidthEnabled)
-			{
-				if (!yamlProcessor.hasYamlFrontMatter())
-				{
-					if (CURRENT_PRIORITY === PRIORITY_LIST.SAVED_NOTE_WIDTH)
-					{
-						const UUID = UUIDGenerator.getUniqueUUID(database);
-						database.addNote(UUID, currentWidthPercentage);
-						yamlProcessor.setYamlValue(NOTE_ID_KEY, UUID);
-						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-						return;
-					}
-					else if (CURRENT_PRIORITY === PRIORITY_LIST.YAML_NOTE_WIDTH)
-					{
-						yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
-						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-						return;
-					}
-				}
-				else
-				{
-					if (!yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY) && !yamlProcessor.hasYamlKey(NOTE_ID_KEY))
-					{
-						if (CURRENT_PRIORITY === PRIORITY_LIST.SAVED_NOTE_WIDTH)
-						{
-							const UUID = UUIDGenerator.getUniqueUUID(database);
-							yamlProcessor.setYamlValue(NOTE_ID_KEY, UUID);
-							database.addNote(UUID, currentWidthPercentage);
-							uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-						}
-						else if (CURRENT_PRIORITY === PRIORITY_LIST.YAML_NOTE_WIDTH)
-						{
-							yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
-							uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-						}
-
-						return;
-					}
-
-					if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
-					{
-						const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
-						database.addNote(noteID, currentWidthPercentage);
-						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-					}
-
-					if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
-					{
-						yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
-						uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-					}
-
-					return;
-				}
-			}
-			else if (isSaveWidthIndividuallyEnabled)
-			{
-				if (await yamlProcessor.hasYamlKey(NOTE_ID_KEY))
-				{
-					const noteID = await yamlProcessor.getYamlValue(NOTE_ID_KEY);
-					database.addNote(noteID, currentWidthPercentage);
-					uiManager.updateUIAndEditorWidth(currentWidthPercentage);
-					return;
-				}
-				else
-				{
-					const UUID = UUIDGenerator.getUniqueUUID(database);
-					yamlProcessor.setYamlValue(NOTE_ID_KEY, UUID);
-					database.addNote(UUID, currentWidthPercentage);
-					return;
-				}
-			}
-			else if (isYAMLWidthEnabled)
-			{
-				if (await yamlProcessor.hasYamlKey(CUSTOM_WIDTH_YAML_KEY))
-				{
-					yamlProcessor.setYamlValue(CUSTOM_WIDTH_YAML_KEY, currentWidthPercentage);
-					return;
-				}
-			}
-
-		}
+		this.plugin.uiManager.setSliderAndTextField(validated.value);
+		this.updateNoteWidthEditorStyle(validated);
 	}
 }

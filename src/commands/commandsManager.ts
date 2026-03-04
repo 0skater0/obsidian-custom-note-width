@@ -1,6 +1,7 @@
 import CustomNoteWidth from "src/main";
 import NoteWidthModal from "src/modals/noteWidthModal";
 import { Command, ChangeNoteWidthCommand, ChangeDefaultNoteWidthCommand, ChangeAllNoteWidthCommand } from "src/commands/command";
+import { WidthUnit, WidthValue, VALID_UNITS, UnitConfig } from "src/utility/config";
 
 /**
  * Interface representing the active commands.
@@ -53,7 +54,7 @@ export default class CommandsManager
 	 */
 	private addCommand(command: Command): void
 	{
-		if (this.activeCommands.hasOwnProperty(command.id)) return;
+		if (Object.hasOwn(this.activeCommands, command.id)) return;
 
 		this.activeCommands[command.id] = true;
 		const commandCallback = this.commandCallback.bind(this, command.execute.bind(command), command.modalTitle);
@@ -89,29 +90,15 @@ export default class CommandsManager
 	 * @param commandAction - The action to be executed by the command.
 	 * @param modalTitle - The title of the modal.
 	 */
-	private commandCallback(commandAction: (arg: number) => void, modalTitle: string): void
+	private commandCallback(commandAction: (wv: WidthValue) => void, modalTitle: string): void
 	{
-		new NoteWidthModal(this.plugin.app, (number) => { commandAction(number); }, modalTitle).open();
-	}
-
-	/**
-	 * Disables a command.
-	 * @param id - The identifier of the command to be disabled.
-	 */
-	public disableCommand(id: string): void
-	{
-		this.activeCommands[id] = false;
-	}
-
-	/**
-	 * Enables a command.
-	 * @param id - The identifier of the command to be enabled.
-	 */
-	public enableCommand(id: string): void
-	{
-		if (this.activeCommands.hasOwnProperty(id))
+		const defaultUnit = this.plugin.settingsManager.getDefaultWidthUnit();
+		const unitConfigs = {} as Record<WidthUnit, UnitConfig>;
+		for (const u of VALID_UNITS)
 		{
-			this.activeCommands[id] = true;
+			unitConfigs[u] = this.plugin.settingsManager.getUnitConfig(u);
 		}
+		new NoteWidthModal(this.plugin.app, (wv) => { commandAction(wv); }, modalTitle, defaultUnit, unitConfigs).open();
 	}
+
 }

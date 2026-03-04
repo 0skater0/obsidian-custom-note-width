@@ -7,9 +7,7 @@ import EventHandler from "src/event/eventHandler";
 import StatusBarManager from "src/statusbar/statusBarManager";
 import WrapperManager from "src/statusbar/wrapperManager";
 import UIElementCreator from "src/ui/uiElementCreator";
-import LokiDatabase from "src/utility/lokiDatabase";
-import { getDatabasePath } from "src/utility/utilities";
-import { DATABASE_FILENAME, getLoadedMessage, getUnloadedMessage } from "src/utility/constants";
+import { getLoadedMessage, getUnloadedMessage } from "src/utility/constants";
 import UIManager from "./ui/uiManager";
 import YamlFrontMatterProcessor from "src/note/yamlFrontMatterProcessor";
 
@@ -19,17 +17,16 @@ import YamlFrontMatterProcessor from "src/note/yamlFrontMatterProcessor";
  */
 export default class CustomNoteWidth extends Plugin
 {
-	settingsManager: SettingsManager;
-	noteWidthManager: NoteWidthManager;
-	eventHandler: EventHandler;
-	wrapperManager: WrapperManager;
-	statusBarManager: StatusBarManager;
-	uiElementCreator: UIElementCreator;
-	commandsManager: CommandsManager;
-	database: LokiDatabase;
-	settingsTab: CustomNoteWidthSettingTab;
-	uiManager: UIManager;
-	yamlFrontMatterProcessor: YamlFrontMatterProcessor;
+	settingsManager!: SettingsManager;
+	noteWidthManager!: NoteWidthManager;
+	eventHandler!: EventHandler;
+	wrapperManager!: WrapperManager;
+	statusBarManager!: StatusBarManager;
+	uiElementCreator!: UIElementCreator;
+	commandsManager!: CommandsManager;
+	settingsTab!: CustomNoteWidthSettingTab;
+	uiManager!: UIManager;
+	yamlFrontMatterProcessor!: YamlFrontMatterProcessor;
 
 	/**
 	 * This function is called when the plugin is loaded.
@@ -45,13 +42,6 @@ export default class CustomNoteWidth extends Plugin
 		// Create the settings tab for "Custom Note Width" in Obsidian settings
 		this.settingsTab = new CustomNoteWidthSettingTab(this.app, this);
 		this.addSettingTab(this.settingsTab);
-
-		// Initialize the Database
-		if (this.settingsManager.getEnableSaveWidthIndividually())
-		{
-			this.database = new LokiDatabase(getDatabasePath(this.app, this, DATABASE_FILENAME));
-			await this.database.init();
-		}
 
 		// Create wrapper manager and create a wrapper div element
 		this.wrapperManager = new WrapperManager();
@@ -81,7 +71,11 @@ export default class CustomNoteWidth extends Plugin
 		this.eventHandler.registerEventHandlers();
 
 		// Apply the editor width at startup
-		this.noteWidthManager.updateNoteWidthEditorStyle(this.settingsManager.getWidthPercentage());
+		const defaultWv = {
+			value: this.settingsManager.getDefaultWidth(),
+			unit: this.settingsManager.getDefaultWidthUnit(),
+		};
+		this.noteWidthManager.updateNoteWidthEditorStyle(defaultWv);
 
 		// Plugin loaded
 		console.log(getLoadedMessage(this.manifest.version));
@@ -95,7 +89,7 @@ export default class CustomNoteWidth extends Plugin
 	async onunload(): Promise<void>
 	{
 		this.wrapperManager.removeWrapper();
-		this.noteWidthManager.removeNoteWidthEditorStyle();
+		this.noteWidthManager.destroy();
 		this.eventHandler.deregisterEventHandlers();
 
 		// Plugin unloaded
