@@ -58,11 +58,11 @@ export default class CustomNoteWidth extends Plugin
 		// Create event handler
 		this.eventHandler = new EventHandler(this.app, this);
 
+		// Create ui manager (must be available before UIElementCreator calls into it)
+		this.uiManager = new UIManager(this);
+
 		// Create ui creator
 		this.uiElementCreator = new UIElementCreator(this);
-
-		// Create ui manager
-		this.uiManager = new UIManager(this);
 
 		// Create the commands
 		this.commandsManager = new CommandsManager(this);

@@ -57,6 +57,36 @@ export interface UnitRange
 }
 
 /**
+ * Control mode for the status bar width input.
+ * - 'slider' shows the classic draggable slider.
+ * - 'pills' shows a small group of preset buttons.
+ */
+export type ControlMode = 'slider' | 'pills';
+
+/**
+ * A single pills preset: width value with its unit.
+ */
+export interface PillsPreset
+{
+	value: number;
+	unit: WidthUnit;
+}
+
+/**
+ * Fixed number of pills presets shown in the status bar.
+ */
+export const PILLS_PRESET_COUNT = 3;
+
+/**
+ * Default pills presets (narrow / normal / wide).
+ */
+export const DEFAULT_PILLS_PRESETS: PillsPreset[] = [
+	{ value: 30, unit: '%' },
+	{ value: 50, unit: '%' },
+	{ value: 100, unit: '%' },
+];
+
+/**
  * Ordered list of valid units for cycling through.
  */
 export const VALID_UNITS: WidthUnit[] = ['%', 'px', 'ch'];

@@ -32,10 +32,6 @@ testing
 test-vault
 condition.txt
 
-tsconfig.json
-version-bump.mjs
-esbuild.config.mjs
-
 #misc
 app.json
 appearance.json
@@ -43,7 +39,6 @@ workspace.json
 hotkeys.json
 core-plugins.json
 core-plugins-migration.json
-package-lock.json
 
 temp/
 .claude/

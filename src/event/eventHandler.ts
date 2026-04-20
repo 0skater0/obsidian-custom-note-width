@@ -228,6 +228,46 @@ export default class EventHandler
 	}
 
 	/**
+	 * Applies the preset at the given index: updates UI, editor style and
+	 * persists the width via the standard save flow.
+	 * Callable from both pill clicks and command invocations.
+	 * @param index - Index of the preset in the pills presets array.
+	 */
+	public applyPillPreset(index: number): void
+	{
+		const presets = this.plugin.settingsManager.getPillsPresets();
+		const preset = presets[index];
+		if (!preset) return;
+
+		const config = this.plugin.settingsManager.getUnitConfig(preset.unit);
+		const value = validateWidth(preset.value, preset.unit, config);
+		const wv: WidthValue = { value, unit: preset.unit };
+
+		// Sync other UI elements to the preset's unit and value
+		this.plugin.uiManager.setUnitSelector(preset.unit);
+		this.plugin.uiManager.updateSliderRange(preset.unit);
+		this.plugin.uiManager.setSliderAndTextField(value);
+
+		this.plugin.noteWidthManager.updateNoteWidthEditorStyle(wv);
+		this.saveWidth(wv);
+
+		this.plugin.uiManager.updatePillsActiveState(wv);
+	}
+
+	/**
+	 * Configures the click event for a single pills preset button.
+	 * @param pill - The pill button element.
+	 * @param index - Index of the preset in the pills presets array.
+	 */
+	public handlePillClickEvent(pill: HTMLButtonElement, index: number): void
+	{
+		pill.addEventListener("click", () =>
+		{
+			this.applyPillPreset(index);
+		});
+	}
+
+	/**
 	 * Configures the event handler for the unit selector dropdown.
 	 * When the unit changes, the slider range and current value are updated,
 	 * and the new width is applied and saved.

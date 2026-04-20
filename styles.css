@@ -82,6 +82,60 @@
 	display: none;
 }
 
+/* Pills control */
+#custom-note-width-pills {
+	display: inline-flex;
+	align-items: stretch;
+	height: 16px;
+	margin-right: 5px;
+	border-radius: var(--radius-s);
+	overflow: hidden;
+	line-height: 1;
+}
+
+.custom-note-width-pill {
+	display: inline-flex;
+	align-items: center;
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 11px;
+	line-height: 1;
+	height: 16px;
+	padding: 0 6px;
+	margin: 0;
+	border-radius: 0;
+	box-shadow: none;
+	min-height: 0;
+}
+
+.custom-note-width-pill + .custom-note-width-pill {
+	border-left: none;
+}
+
+.custom-note-width-pill:first-child {
+	border-top-left-radius: var(--radius-s);
+	border-bottom-left-radius: var(--radius-s);
+}
+
+.custom-note-width-pill:last-child {
+	border-top-right-radius: var(--radius-s);
+	border-bottom-right-radius: var(--radius-s);
+}
+
+.custom-note-width-pill:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+	box-shadow: none;
+}
+
+.custom-note-width-pill.is-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
 /* Donation button */
 #custom-note-width-donation-button {
 	margin-top: 5%;

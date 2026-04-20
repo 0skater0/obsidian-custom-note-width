@@ -1,6 +1,6 @@
 import CustomNoteWidth from "src/main";
 import { DOM_IDENTIFIERS } from "src/utility/constants";
-import { VALID_UNITS } from "src/utility/config";
+import { VALID_UNITS, PillsPreset } from "src/utility/config";
 
 export default class UIElementCreator
 {
@@ -42,6 +42,31 @@ export default class UIElementCreator
 		slider.style.width = this.plugin.settingsManager.getSliderWidth() + "px";
 
 		return slider;
+	}
+
+	/**
+	 * Creates the pills container with preset buttons.
+	 * @returns The created container element.
+	 */
+	private createPillsElement(): HTMLElement
+	{
+		const container = document.createElement("div");
+		container.id = DOM_IDENTIFIERS.PILLS_CONTAINER;
+
+		const presets = this.plugin.settingsManager.getPillsPresets();
+		presets.forEach((preset: PillsPreset, index: number) =>
+		{
+			const pill = document.createElement("button");
+			pill.id = DOM_IDENTIFIERS.PILL_PREFIX + index;
+			pill.type = "button";
+			pill.classList.add("custom-note-width-pill");
+			pill.textContent = `${preset.value}${preset.unit}`;
+			pill.dataset.index = index.toString();
+			container.appendChild(pill);
+			this.plugin.eventHandler.handlePillClickEvent(pill, index);
+		});
+
+		return container;
 	}
 
 	/**
@@ -148,8 +173,13 @@ export default class UIElementCreator
 	{
 		let slider: HTMLInputElement | null = null;
 		let sliderValueText: HTMLElement | null = null;
+		let pills: HTMLElement | null = null;
 
-		if (this.plugin.settingsManager.getEnableSlider())
+		const controlMode = this.plugin.settingsManager.getControlMode();
+		const useSlider = this.plugin.settingsManager.getEnableSlider() && controlMode === 'slider';
+		const usePills = this.plugin.settingsManager.getEnableSlider() && controlMode === 'pills';
+
+		if (useSlider)
 		{
 			slider = this.createSliderElement();
 			if (slider)
@@ -157,8 +187,12 @@ export default class UIElementCreator
 				sliderValueText = this.createAndConfigureText(slider);
 			}
 		}
+		else if (usePills)
+		{
+			pills = this.createPillsElement();
+		}
 
-		if (this.plugin.settingsManager.getEnableTextInput() && !slider)
+		if (this.plugin.settingsManager.getEnableTextInput() && !slider && !usePills)
 		{
 			const textUnit = this.plugin.settingsManager.getDefaultWidthUnit();
 			const textUnitConfig = this.plugin.settingsManager.getUnitConfig(textUnit);
@@ -169,12 +203,19 @@ export default class UIElementCreator
 			sliderValueText = this.createAndConfigureText(dummySlider);
 		}
 
-		// Create unit selector
-		const unitSelector = this.createUnitSelector();
-		this.plugin.eventHandler.handleUnitSelectorEvent(unitSelector);
+		// Create unit selector (hidden in pills mode — presets already carry their own unit)
+		const unitSelector = usePills ? null : this.createUnitSelector();
+		if (unitSelector)
+		{
+			this.plugin.eventHandler.handleUnitSelectorEvent(unitSelector);
+		}
 
 		// Append elements to wrapper
 		const elements: HTMLElement[] = [];
+		if (pills)
+		{
+			elements.push(pills);
+		}
 		if (slider)
 		{
 			elements.push(slider);
@@ -183,7 +224,10 @@ export default class UIElementCreator
 		{
 			elements.push(sliderValueText);
 		}
-		elements.push(unitSelector);
+		if (unitSelector)
+		{
+			elements.push(unitSelector);
+		}
 
 		if (elements.length > 0)
 		{
@@ -191,5 +235,11 @@ export default class UIElementCreator
 		}
 
 		this.plugin.statusBarManager.appendToStatusBar();
+
+		// Reflect the currently active preset (if any) on pills
+		if (pills)
+		{
+			this.plugin.uiManager.updatePillsActiveState();
+		}
 	}
 }

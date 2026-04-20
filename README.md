@@ -1,134 +1,141 @@
 # Obsidian Custom Note Width
 
-A plugin for Obsidian that enables you to easily adjust the editor's line width on a note-by-note basis.
-All these following options ensure that users have a tailored experience, making line width adjustments both efficient and user-friendly.
-To make this task more intuitive and adaptable to your preferences, the plugin offers several methods:
+![Latest release](https://img.shields.io/github/v/release/0skater0/obsidian-custom-note-width)
+![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=7c3aed&labelColor=34208c&label=Downloads&query=%24%5B%22custom-note-width%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2FHEAD%2Fcommunity-plugin-stats.json)
+![License](https://img.shields.io/github/license/0skater0/obsidian-custom-note-width)
+![Open issues](https://img.shields.io/github/issues/0skater0/obsidian-custom-note-width)
+![Last commit](https://img.shields.io/github/last-commit/0skater0/obsidian-custom-note-width)
 
-- Employ a straightforward slider or textbox situated in the status bar for quick and visual adjustments.
-- For users who prefer to work with YAML front matter there is an option to set a custom width through YAML, allowing you to maintain specific formatting or structures in your notes.
-- Integrated commands have been added, which can be executed directly within the Obsidian interface. This is especially handy for users who prefer quick actions or are accustomed to using keyboard shortcuts, offering a seamless way to modify the line width without diving into settings or codes.
+Control the line width of every note in Obsidian — individually, per note, or globally. A small control in the status bar gives you instant access, YAML frontmatter persists widths per note, and a new *Pills* mode lets you switch between presets with a single click.
 
-![Demo GIF](/images/demo.gif)
+![Demo GIF](images/demo.gif)
 
 ## Features
 
-- Customize line width for individual notes (or all notes) using a convenient slider in the status bar.
-- Support for multiple width units: **%** (percentage), **px** (pixels), and **ch** (character widths).
-- Easily increase or decrease line width to tailor your editing experience.
-- User-friendly interface for intuitive usage.
-- Fully customizable through settings for personalized adjustments.
-
-## Usage
-
-Once you enable the plugin in the settings menu, a slider will appear in the bottom right status bar.
-With this plugin, you can easily make real-time adjustments to the width of notes using either the slider or the textfield, ensuring a smooth and seamless editing experience.
-
-### Width Units
-
-The plugin supports three width units:
-
-- **%** (Percentage): Width relative to the editor pane (0-100%).
-- **px** (Pixels): Absolute width in pixels (100-4000px).
-- **ch** (Characters): Width based on character count (10-200ch).
-
-You can switch between units by clicking the unit label next to the value in the status bar. The slider range adjusts automatically to match the selected unit.
-
-## Settings
-
-### General Settings
-
-- **Default width unit**: Choose the default unit (%, px, or ch) for the note width.
-- **Default width**: Set the default width value for notes without a per-note width.
-- **Per-note width**: Enable or disable individual widths per note via YAML frontmatter.
-- **YAML front matter key**: Customize the key used in YAML frontmatter (default: `custom-width`).
-
-### Style Settings
-
-- Enable or disable the slider
-- Enable or disable the textbox
-- Adjust the slider width
+- **Per-note widths** via YAML frontmatter
+- **Status-bar controls** — choose between a classic slider or *Pills* (three preset buttons)
+- **Three width units** — `%`, `px`, `ch`
+- **Independent code block width** — so narrow prose and wide code can coexist
+- **Hotkey-ready commands** for every width operation
+- **Full English and German UI**
 
 ## Installation
 
-The plugin can be found in the Community Plugins directory which can be accessed from the Settings pane under Third Party Plugins.
+### From Community Plugins
 
-## Manual installation
+1. Open **Settings → Community plugins**
+2. Browse → search *"Custom Note Width"*
+3. Install → Enable
 
-1. Download custom-note-width.zip located at [latest release](https://github.com/0skater0/obsidian-custom-note-width/releases)
-2. Extract the obsidian-custom-note-width folder from the zip to your vault's plugins <br> folder: `<vault>/.obsidian/plugins/`  Note: On some machines the `.obsidian` folder may be hidden. On MacOS you should be able to press `Command+Shift+Dot` to show the folder in Finder.
-3. Reload Obsidian
-4. If prompted about Safe Mode, you can disable safe mode and enable the plugin.
+### Manual
 
-## Important
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/0skater0/obsidian-custom-note-width/releases)
+2. Copy them into `<vault>/.obsidian/plugins/custom-note-width/`
+3. Restart Obsidian and enable the plugin
 
-> **IT'S IMPORTANT TO REGULARLY MAKE BACKUPS! DON'T FORGET TO PROTECT YOUR DATA!**
+> **Requirement:** Obsidian's *Readable line length* setting must be enabled (Settings → Editor → Readable line length).
 
-## Theme Compatibility
+## Usage
 
-> **Disclaimer:** This plugin modifies the CSS variable `--file-line-width` to control the editor's line width.
-> Custom themes may override or interfere with this variable, which can cause the plugin to malfunction.
-> **There is no guarantee that this plugin works with every custom theme.**
->
-> The plugin requires **"Readable line length"** to be enabled in Obsidian's Editor settings (`Settings > Editor > Readable line length`).
+The plugin modifies Obsidian's `--file-line-width` CSS variable. Control it three ways:
 
-### Tested Themes
+| Method | Best for |
+|--------|----------|
+| **Status-bar control** (slider or pills) | Quick adjustments while reading/editing |
+| **YAML frontmatter** (`custom-width: 60`) | Persisting a specific width per note |
+| **Commands** (palette / hotkeys) | Power users, keyboard-driven workflows |
+
+### Width units
+
+- **%** — relative to the editor pane (0–100)
+- **px** — absolute pixels (100–4000)
+- **ch** — character widths (10–200)
+
+Switch units via the unit label next to the slider/value (slider mode) or inside a preset editor (pills mode).
+
+### Pills mode
+
+Enable under **Settings → Control mode → Pills**. The status bar shows three buttons with your configured preset values. Click to apply. The button matching the currently applied width is highlighted; no button is active when the width is a custom value.
+
+## Settings
+
+<details>
+<summary><strong>Click to see every setting</strong></summary>
+
+<br>
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Language** | Plugin UI language (Auto / English / Deutsch) | `Auto` |
+| **Enable slider** | Shows the width control in the status bar | `on` |
+| **Control mode** | *Slider* (draggable) or *Pills* (three preset buttons) | `Slider` |
+| **Slider width** *(Slider mode)* | Horizontal size of the slider in pixels | `85` |
+| **Pill preset 1–3** *(Pills mode)* | Value and unit per preset | `30%` / `50%` / `100%` |
+| **Enable text field** | Numeric input next to the slider | `on` |
+| **Default width unit** | Unit used for the global default width | `%` |
+| **Default width** | Width applied when a note has no per-note width | `50` |
+| **% range** | Min / max for percentage unit | `0 / 100` |
+| **px range** | Min / max for pixel unit | `100 / 4000` |
+| **ch range** | Min / max for character unit | `10 / 200` |
+| **Enable per-note width** | Store widths in YAML frontmatter | `on` |
+| **YAML front matter key** | Key used for per-note widths | `custom-width` |
+| **Enable code block width** | Give code blocks an independent width | `off` |
+| **Code block width unit** | Unit for code block width | `px` |
+| **Code block width** | Size applied to code blocks | `800` |
+| **Reading mode** | Apply code block width in preview | `on` |
+| **Source mode** | Apply code block width in source view | `on` |
+| **Live preview mode** | Apply code block width in live preview | `on` |
+
+</details>
+
+## Commands
+
+All commands appear in the palette and can be bound to hotkeys under **Settings → Hotkeys** (filter: *Custom Note Width*):
+
+| Command | Action |
+|---------|--------|
+| Change the width of the open note | Opens a modal, applies width to current note |
+| Change the default note width | Opens a modal, updates the global default |
+| Change the width for all notes | Opens a modal, rewrites every note's YAML width |
+| Apply pill preset 1 / 2 / 3 | Applies the given preset (Pills mode only) |
+
+## Theme compatibility
+
+> **Disclaimer:** The plugin modifies `--file-line-width`. Custom themes may override this variable; there is no guarantee the plugin works with every theme.
 
 | Theme | Status | Obsidian Version | Notes |
-|-------|--------|-----------------|-------|
+|-------|--------|------------------|-------|
 | Default | Works | 1.12.4 | Fully functional |
 | Things | Works | 1.12.4 | Fully functional |
 
-**Your theme is not listed?** If you have tested the plugin with a theme not listed above, please submit a Pull Request to add it to the table. This helps other users know which themes are compatible.
+Your theme isn't listed? Open a PR adding a row — see [CONTRIBUTING](CONTRIBUTING.md).
 
-To contribute:
-1. Fork this repository
-2. Edit the table in `README.md` and add your theme with its status
-3. Submit a Pull Request with the title: `Theme compatibility: [Theme Name]`
+## Reporting bugs
 
-## Reporting Bugs
+Please include:
 
-If you encounter an issue, please create a new [issue](https://github.com/0skater0/obsidian-custom-note-width/issues) on GitHub. To help me investigate and resolve the problem, **please include the following information:**
+1. **Obsidian version** (`Settings → General`)
+2. **Plugin version** (`Settings → Community plugins`)
+3. **Theme name** (`Settings → Appearance → Themes`)
+4. **Operating system**
+5. **Console errors** — open DevTools (`Ctrl+Shift+I` / `Cmd+Option+I`), Console tab, copy anything red referencing `custom-note-width`
+6. **Steps to reproduce** and what you expected vs what happened
+7. **Screenshots or screen recordings** help a lot — tools like [LICEcap](https://www.cockos.com/licecap/) or [ShareX](https://getsharex.com/) work well
 
-### Required Information
+> Reports that only say *"it doesn't work"* can't be investigated — details make the difference.
 
-1. **Obsidian version** (found in `Settings > General`, top of the page)
-2. **Plugin version** (found in `Settings > Community plugins`, listed next to "Custom Note Width")
-3. **Theme name** you are using (found in `Settings > Appearance > Themes`)
-4. **Operating system** (Windows / macOS / Linux)
+## Backups
 
-### How to Check for Errors
+> **Always keep backups of your vault.** The plugin writes to YAML frontmatter; bugs are possible. Protect your data.
 
-1. Open the **Developer Console** in Obsidian:
-   - **Windows/Linux:** `Ctrl + Shift + I`
-   - **macOS:** `Cmd + Option + I`
-2. Click the **Console** tab
-3. Look for any **red error messages** that mention `custom-note-width`
-4. Copy and paste any relevant errors into your issue report
+## Contributing
 
-### Describe the Problem
-
-- **What did you expect to happen?**
-- **What actually happened?**
-- **Step-by-step reproduction:** Describe exactly what you did, step by step, so the issue can be reproduced.
-- **How often does it occur?** (Always / Sometimes / Only once)
-- **Are you using "Readable line length"?** (`Settings > Editor > Readable line length`)
-
-### Screenshots and Videos
-
-- **Screenshots** help me see what you see. Please include them whenever possible.
-- **Short screen recordings** (e.g., via [LICEcap](https://www.cockos.com/licecap/), [ShareX](https://getsharex.com/), or the built-in screen recorder on your OS) are even better, especially for visual glitches or issues that involve interactions (switching tabs, dragging sliders, etc.).
-
-> **Reports that only say "it doesn't work" without any details cannot be investigated.** The more information you provide, the faster I can help.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and the PR process.
 
 ## License
 
-This plugin is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
-Please note that this plugin is provided as-is without any warranty. Use it at your own risk.
+[MIT](LICENSE) — provided as-is, no warranty.
 
-### Support Me & my work
-
-This plugin is offered completely free of charge!
-
-If you fancy buying me a coffee to fuel more creations like this plugin, you have the option to do so by clicking the button below.
+## Support
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/P5P7NLC40)

@@ -59,6 +59,7 @@ const en: Translations = {
 	"command.change_default_width.modal_title": "Enter the default note width",
 	"command.change_all_width.name": "Change the width for all notes",
 	"command.change_all_width.modal_title": "Enter the width for all notes",
+	"command.apply_pill_preset.name": "Apply pill preset {{index}}",
 
 	// Notices
 	"notice.slider_too_large": "Slider too large!",
@@ -66,9 +67,6 @@ const en: Translations = {
 	// Progress modals
 	"progress.changing_keys": "Changing all YAML-Frontmatter keys...",
 	"progress.changing_values": "Changing the value for all YAML-Frontmatter's...",
-
-	// Donation
-	"donation.disclaimer": "Disclaimer: Please note that clicking the image will open a link in your browser.",
 
 	// Settings — Language
 	"settings.language.name": "Language",
@@ -81,6 +79,12 @@ const en: Translations = {
 	"settings.slider_width.desc": "Change the width of the slider.",
 	"settings.enable_text_field.name": "Enable text field",
 	"settings.enable_text_field.desc": "Enable to change the width via text field input.",
+	"settings.control_mode.name": "Control mode",
+	"settings.control_mode.desc": "Choose between the classic slider or preset pills for quick width switching.",
+	"settings.control_mode.slider": "Slider",
+	"settings.control_mode.pills": "Pills",
+	"settings.pill_preset.name": "Preset {{index}}",
+	"settings.pill_preset.desc": "Width value and unit for this preset pill.",
 
 	// Settings — Width
 	"settings.default_width_unit.name": "Default width unit",
@@ -133,6 +137,7 @@ const de: Translations = {
 	"command.change_default_width.modal_title": "Standard-Notizbreite eingeben",
 	"command.change_all_width.name": "Breite f\u00FCr alle Notizen \u00E4ndern",
 	"command.change_all_width.modal_title": "Breite f\u00FCr alle Notizen eingeben",
+	"command.apply_pill_preset.name": "Pill-Voreinstellung {{index}} anwenden",
 
 	// Notices
 	"notice.slider_too_large": "Schieberegler zu gro\u00DF!",
@@ -140,9 +145,6 @@ const de: Translations = {
 	// Progress modals
 	"progress.changing_keys": "YAML-Frontmatter-Schl\u00FCssel werden ge\u00E4ndert\u2026",
 	"progress.changing_values": "YAML-Frontmatter-Werte werden ge\u00E4ndert\u2026",
-
-	// Donation
-	"donation.disclaimer": "Hinweis: Durch Klicken auf das Bild wird ein Link in Ihrem Browser ge\u00F6ffnet.",
 
 	// Settings — Language
 	"settings.language.name": "Sprache",
@@ -155,6 +157,12 @@ const de: Translations = {
 	"settings.slider_width.desc": "Breite des Schiebereglers \u00E4ndern.",
 	"settings.enable_text_field.name": "Textfeld aktivieren",
 	"settings.enable_text_field.desc": "Breite per Textfeld-Eingabe \u00E4ndern.",
+	"settings.control_mode.name": "Bedienmodus",
+	"settings.control_mode.desc": "Klassischen Schieberegler oder Voreinstellungs-Pills f\u00FCr schnelles Umschalten w\u00E4hlen.",
+	"settings.control_mode.slider": "Schieberegler",
+	"settings.control_mode.pills": "Pills",
+	"settings.pill_preset.name": "Voreinstellung {{index}}",
+	"settings.pill_preset.desc": "Breitenwert und Einheit f\u00FCr diese Pill.",
 
 	// Settings — Width
 	"settings.default_width_unit.name": "Standard-Breiteneinheit",

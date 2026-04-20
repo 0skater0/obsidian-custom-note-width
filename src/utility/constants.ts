@@ -59,7 +59,9 @@ export const DOM_IDENTIFIERS = {
 	NWM_INPUT_CONTAINER: "nwm-input-container",
 	NWM_BUTTON_CONTAINER: "nwm-button-container",
 	UNIT_SELECTOR: "custom-note-width-unit-selector",
-	NWM_UNIT_SELECTOR: "nwm-unit-selector"
+	NWM_UNIT_SELECTOR: "nwm-unit-selector",
+	PILLS_CONTAINER: "custom-note-width-pills",
+	PILL_PREFIX: "custom-note-width-pill-"
 };
 
 /**

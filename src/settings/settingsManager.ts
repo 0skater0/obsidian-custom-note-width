@@ -1,5 +1,14 @@
 import CustomNoteWidth from "src/main";
-import { WidthUnit, UnitConfig, UnitRange, UNIT_CONFIGS } from "src/utility/config";
+import {
+	WidthUnit,
+	UnitConfig,
+	UnitRange,
+	UNIT_CONFIGS,
+	ControlMode,
+	PillsPreset,
+	DEFAULT_PILLS_PRESETS,
+	PILLS_PRESET_COUNT,
+} from "src/utility/config";
 import { setLocaleOverride } from "src/i18n/i18n";
 
 /**
@@ -20,6 +29,8 @@ export interface CustomNoteWidthSettings
 	codeBlockWidth: number;
 	codeBlockWidthUnit: WidthUnit;
 	codeBlockWidthModes: { reading: boolean; source: boolean; livePreview: boolean };
+	controlMode: ControlMode;
+	pillsPresets: PillsPreset[];
 }
 
 /**
@@ -48,6 +59,8 @@ export default class SettingsManager
 		codeBlockWidth: 800,
 		codeBlockWidthUnit: 'px' as WidthUnit,
 		codeBlockWidthModes: { reading: true, source: true, livePreview: true },
+		controlMode: 'slider',
+		pillsPresets: [...DEFAULT_PILLS_PRESETS],
 	};
 
 	/**
@@ -184,6 +197,24 @@ export default class SettingsManager
 	}
 
 	/**
+	 * Retrieves the control mode setting.
+	 * @returns - The control mode ("slider" or "pills").
+	 */
+	public getControlMode(): ControlMode
+	{
+		return this.getSetting("controlMode");
+	}
+
+	/**
+	 * Retrieves the pills presets.
+	 * @returns - Array of pills presets.
+	 */
+	public getPillsPresets(): PillsPreset[]
+	{
+		return this.getSetting("pillsPresets");
+	}
+
+	/**
 	 * Returns the effective UnitConfig for a given unit, merging
 	 * the hardcoded defaults with the user's custom min/max ranges.
 	 * @param unit - The width unit.
@@ -255,6 +286,16 @@ export default class SettingsManager
 		if (loaded && !('codeBlockWidthModes' in loaded))
 		{
 			loaded.codeBlockWidthModes = { reading: true, source: true, livePreview: true };
+		}
+
+		// Ensure control mode and pills presets exist (migration from versions before pills)
+		if (loaded && !('controlMode' in loaded))
+		{
+			loaded.controlMode = 'slider';
+		}
+		if (loaded && (!('pillsPresets' in loaded) || !Array.isArray(loaded.pillsPresets) || loaded.pillsPresets.length !== PILLS_PRESET_COUNT))
+		{
+			loaded.pillsPresets = [...DEFAULT_PILLS_PRESETS];
 		}
 
 		this.settings = Object.assign({}, this.DEFAULT_SETTINGS, loaded);

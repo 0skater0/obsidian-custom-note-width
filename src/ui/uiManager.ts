@@ -1,6 +1,6 @@
 import CustomNoteWidth from "src/main";
 import { DOM_IDENTIFIERS } from "src/utility/constants";
-import { WidthUnit } from "src/utility/config";
+import { WidthUnit, WidthValue } from "src/utility/config";
 import { validateWidthValue } from "src/utility/utilities";
 
 /**
@@ -43,6 +43,58 @@ export default class UIManager
 	public getUnitSelectorElement(): HTMLSelectElement | null
 	{
 		return document.getElementById(DOM_IDENTIFIERS.UNIT_SELECTOR) as HTMLSelectElement | null;
+	}
+
+	/**
+	 * Retrieves the pills container element from the DOM.
+	 * @returns The pills container or null if not found.
+	 */
+	public getPillsContainer(): HTMLElement | null
+	{
+		return document.getElementById(DOM_IDENTIFIERS.PILLS_CONTAINER);
+	}
+
+	/**
+	 * Marks the pill matching the given width+unit (or the currently applied
+	 * width, inferred from DOM/defaults) as active. Removes the active class
+	 * from all other pills.
+	 * @param wv - Optional explicit width value. When omitted, falls back to
+	 *             text-field/slider DOM values, then to default width.
+	 */
+	public updatePillsActiveState(wv?: WidthValue): void
+	{
+		const container = this.getPillsContainer();
+		if (!container) return;
+
+		const presets = this.plugin.settingsManager.getPillsPresets();
+
+		let currentValue: number;
+		let currentUnit: WidthUnit;
+
+		if (wv)
+		{
+			currentValue = wv.value;
+			currentUnit = wv.unit;
+		}
+		else
+		{
+			const textField = this.getTextFieldElement();
+			const slider = this.getSliderElement();
+			currentValue = textField
+				? parseInt(textField.value)
+				: slider
+					? parseInt(slider.value)
+					: this.plugin.settingsManager.getDefaultWidth();
+			currentUnit = this.getCurrentUnit();
+		}
+
+		presets.forEach((preset, index) =>
+		{
+			const pill = document.getElementById(DOM_IDENTIFIERS.PILL_PREFIX + index);
+			if (!pill) return;
+			const matches = preset.unit === currentUnit && preset.value === currentValue;
+			pill.classList.toggle("is-active", matches);
+		});
 	}
 
 	/**

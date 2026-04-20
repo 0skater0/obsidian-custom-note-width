@@ -1,7 +1,8 @@
 import CustomNoteWidth from "src/main";
 import NoteWidthModal from "src/modals/noteWidthModal";
 import { Command, ChangeNoteWidthCommand, ChangeDefaultNoteWidthCommand, ChangeAllNoteWidthCommand } from "src/commands/command";
-import { WidthUnit, WidthValue, VALID_UNITS, UnitConfig } from "src/utility/config";
+import { WidthUnit, WidthValue, VALID_UNITS, UnitConfig, PILLS_PRESET_COUNT } from "src/utility/config";
+import { t } from "src/i18n/i18n";
 
 /**
  * Interface representing the active commands.
@@ -35,6 +36,32 @@ export default class CommandsManager
 		this.commands.push(new ChangeAllNoteWidthCommand(plugin));
 
 		this.registerCommands();
+		this.registerPillCommands();
+	}
+
+	/**
+	 * Registers one command per pill preset slot. Commands are always listed
+	 * in the Hotkeys settings (so users can bind keys up-front) but only
+	 * execute when pills mode is active.
+	 */
+	private registerPillCommands(): void
+	{
+		for (let index = 0; index < PILLS_PRESET_COUNT; index++)
+		{
+			const id = `apply-pill-preset-${index + 1}`;
+			this.plugin.addCommand({
+				id,
+				name: t("command.apply_pill_preset.name", { index: index + 1 }),
+				checkCallback: (checking: boolean) =>
+				{
+					if (this.plugin.settingsManager.getControlMode() !== "pills") return false;
+					if (!this.plugin.settingsManager.getEnableSlider()) return false;
+					if (checking) return true;
+					this.plugin.eventHandler.applyPillPreset(index);
+					return true;
+				},
+			});
+		}
 	}
 
 	/**

@@ -5,7 +5,7 @@ import YamlFrontMatterProcessor from "src/note/yamlFrontMatterProcessor";
 import ProgressBarModal from "src/modals/progressBarModal";
 import { PLUGIN_NAME } from "src/utility/constants";
 import { t, setLocaleOverride, SUPPORTED_LOCALES } from "src/i18n/i18n";
-import { WidthUnit, UNIT_CONFIGS, VALID_UNITS, UNIT_ABSOLUTE_BOUNDS } from "src/utility/config";
+import { WidthUnit, UNIT_CONFIGS, VALID_UNITS, UNIT_ABSOLUTE_BOUNDS, ControlMode, PillsPreset } from "src/utility/config";
 
 /**
  * Represents the settings tab for the CustomNoteWidth plugin.
@@ -78,8 +78,92 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 				});
 			});
 
-		// Only show this setting if the slider is enabled to change slider width
+		// Control mode (slider vs pills) — only when enabled
 		if (this.plugin.settingsManager.getEnableSlider())
+		{
+			new Setting(containerEl)
+				.setName(t("settings.control_mode.name"))
+				.setDesc(t("settings.control_mode.desc"))
+				.addDropdown((dropdown) =>
+				{
+					dropdown.addOption("slider", t("settings.control_mode.slider"));
+					dropdown.addOption("pills", t("settings.control_mode.pills"));
+					dropdown.setValue(this.plugin.settingsManager.getControlMode());
+					dropdown.onChange(async (value) =>
+					{
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							controlMode: value as ControlMode,
+						});
+						this.plugin.uiManager.updateUI();
+						this.display();
+					});
+				});
+		}
+
+		// Pills presets editor
+		if (this.plugin.settingsManager.getEnableSlider() && this.plugin.settingsManager.getControlMode() === "pills")
+		{
+			const presets = this.plugin.settingsManager.getPillsPresets();
+			presets.forEach((preset: PillsPreset, index: number) =>
+			{
+				new Setting(containerEl)
+					.setName(t("settings.pill_preset.name", { index: index + 1 }))
+					.setDesc(t("settings.pill_preset.desc"))
+					.addText((text) =>
+					{
+						const config = this.plugin.settingsManager.getUnitConfig(preset.unit);
+						text
+							.setPlaceholder(config.defaultValue.toString())
+							.setValue(preset.value.toString())
+							.onChange(async (value) =>
+							{
+								const parsed = parseInt(value);
+								if (value === "" || isNaN(parsed)) return;
+								const currentPresets = [...this.plugin.settingsManager.getPillsPresets()];
+								const unitConfig = this.plugin.settingsManager.getUnitConfig(currentPresets[index].unit);
+								let clamped = parsed;
+								if (clamped < unitConfig.min) clamped = unitConfig.min;
+								if (clamped > unitConfig.max) clamped = unitConfig.max;
+								currentPresets[index] = { ...currentPresets[index], value: clamped };
+								await this.plugin.settingsManager.saveSettings({
+									...this.plugin.settingsManager.settings,
+									pillsPresets: currentPresets,
+								});
+								this.plugin.uiManager.updateUI();
+							});
+					})
+					.addDropdown((dropdown) =>
+					{
+						for (const unit of VALID_UNITS)
+						{
+							dropdown.addOption(unit, unit);
+						}
+						dropdown.setValue(preset.unit);
+						dropdown.onChange(async (value) =>
+						{
+							const newUnit = value as WidthUnit;
+							const currentPresets = [...this.plugin.settingsManager.getPillsPresets()];
+							const config = this.plugin.settingsManager.getUnitConfig(newUnit);
+							let newValue = currentPresets[index].value;
+							if (newValue < config.min || newValue > config.max)
+							{
+								newValue = config.defaultValue;
+							}
+							currentPresets[index] = { value: newValue, unit: newUnit };
+							await this.plugin.settingsManager.saveSettings({
+								...this.plugin.settingsManager.settings,
+								pillsPresets: currentPresets,
+							});
+							this.plugin.uiManager.updateUI();
+							this.display();
+						});
+					});
+			});
+		}
+
+		// Only show this setting if the slider is enabled AND in slider mode
+		if (this.plugin.settingsManager.getEnableSlider() && this.plugin.settingsManager.getControlMode() === "slider")
 		{
 			new Setting(containerEl)
 				.setName(t("settings.slider_width.name"))

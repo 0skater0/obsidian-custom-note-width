@@ -183,6 +183,7 @@ export default class NoteWidthManager
 		this.plugin.uiManager.setSliderAndTextField(wv.value);
 		this.plugin.uiManager.updateSliderRange(wv.unit);
 		this.plugin.uiManager.setUnitSelector(wv.unit);
+		this.plugin.uiManager.updatePillsActiveState(wv);
 	}
 
 	/**

@@ -1,5 +1,4 @@
 import { DOM_IDENTIFIERS, DONATION_LINK, KOFI_SVG } from "src/utility/constants";
-import { t } from "src/i18n/i18n";
 
 /**
  * Represents a donation button component.
@@ -44,7 +43,7 @@ export default class DonationButton
 	}
 
 	/**
-	 * Creates a donation button with a disclaimer.
+	 * Creates the donation button.
 	 * @param containerEl - The container element to which the donation button should be appended.
 	 * @returns - The container element with the appended donation button.
 	 */
@@ -53,15 +52,7 @@ export default class DonationButton
 		const div = containerEl.createEl("div");
 		div.id = DOM_IDENTIFIERS.DONATION_BUTTON;
 
-		// Create a paragraph element to display a disclaimer message
-		const p = document.createElement("p");
-		p.textContent = t("donation.disclaimer");
-
-		// Create the donation button and append it to the container div
 		div.appendChild(this.createDonateButtonElement(DONATION_LINK, this.parser.parseFromString(KOFI_SVG, "text/xml").documentElement));
-
-		// Append the disclaimer paragraph to the container div
-		div.appendChild(p);
 
 		return div;
 	}
