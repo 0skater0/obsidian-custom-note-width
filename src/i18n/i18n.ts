@@ -257,7 +257,7 @@ const ru: Translations = {
 	"settings.enable_per_note.name": "Включить индивидуальную ширину заметок",
 	"settings.enable_per_note.desc": "Разрешить задавать отдельную ширину для каждой заметки через свойства заметки.",
 	"settings.yaml_key.name": "Ключ YAML свойства заметки",
-	"settings.yaml_key.desc": "Укажите ключ YAML свойства заметки для задания пользовательской ширины редактора.",
+	"settings.yaml_key.desc": "Укажите ключ YAML свойства заметки для управления шириной редактора.",
 
 	// Settings — Code Block
 	"settings.enable_code_block.name": "Включить регулировку ширины блоков кода",
