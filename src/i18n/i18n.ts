@@ -1,7 +1,7 @@
 /**
  * Internationalization module.
  * Detects Obsidian's display language via moment.locale() and provides
- * translated strings. Supported locales: en, de, en-gb.
+ * translated strings. Supported locales: en, de, en-gb, ru.
  * Supports an explicit locale override via setLocaleOverride().
  */
 
@@ -32,6 +32,7 @@ export const SUPPORTED_LOCALES: LocaleOption[] = [
 	{ value: "auto", label: "Auto" },
 	{ value: "en", label: "English" },
 	{ value: "de", label: "Deutsch" },
+	{ value: "ru", label: "Русский" },
 ];
 
 /**
@@ -200,12 +201,91 @@ const de: Translations = {
 };
 
 // ============================
+// Russian
+// ============================
+
+const ru: Translations = {
+	// Buttons
+	"button.cancel": "Отмена",
+	"button.apply": "Применить",
+
+	// Commands
+	"command.change_note_width.name": "Изменить ширину открытой заметки",
+	"command.change_note_width.modal_title": "Введите ширину для открытой заметки",
+	"command.change_default_width.name": "Изменить ширину заметки по умолчанию",
+	"command.change_default_width.modal_title": "Введите ширину заметки по умолчанию",
+	"command.change_all_width.name": "Изменить ширину для всех заметок",
+	"command.change_all_width.modal_title": "Введите ширину для всех заметок",
+	"command.apply_pill_preset.name": "Применить набор кнопок {{index}}",
+
+	// Notices
+	"notice.slider_too_large": "Значение ползунка слишком большое!",
+
+	// Progress modals
+	"progress.changing_keys": "Изменение всех ключей YAML свойств заметки…",
+	"progress.changing_values": "Изменение значений для всех YAML свойств заметки…",
+
+	// Settings — Language
+	"settings.language.name": "Язык",
+	"settings.language.desc": "Выберите язык плагина. \"Auto\" использует язык Obsidian.",
+
+	// Settings — UI
+	"settings.enable_slider.name": "Включить ползунок",
+	"settings.enable_slider.desc": "Включить или отключить ползунок регулировки ширины.",
+	"settings.slider_width.name": "Ширина ползунка",
+	"settings.slider_width.desc": "Изменить ширину ползунка.",
+	"settings.enable_text_field.name": "Включить текстовое поле",
+	"settings.enable_text_field.desc": "Включить текстовое поле рядом с ползунком для ввода ширины вручную.",
+	"settings.control_mode.name": "Режим управления",
+	"settings.control_mode.desc": "Выберите между классическим ползунком или набором кнопок для переключения ширины.",
+	"settings.control_mode.slider": "Ползунок",
+	"settings.control_mode.pills": "Кнопки",
+	"settings.pill_preset.name": "Кнопка {{index}}",
+	"settings.pill_preset.desc": "Значение ширины и единица измерения для этой кнопки.",
+
+	// Settings — Width
+	"settings.default_width_unit.name": "Единица ширины по умолчанию",
+	"settings.default_width_unit.desc": "Выберите единицу для ширины по умолчанию (%, px или ch).",
+	"settings.default_width.name": "Ширина по умолчанию",
+	"settings.default_width.desc": "Установите ширину по умолчанию ({{unit}}) для заметок без индивидуальной ширины. Диапазон: {{min}}\u2013{{max}}",
+
+	// Settings — Range
+	"settings.unit_range.name": "Диапазон {{unit}}",
+	"settings.unit_range.desc": "Минимум и максимум для единицы {{unit}} (абсолютные границы: {{min}}\u2013{{max}}).",
+
+	// Settings — Per-Note
+	"settings.enable_per_note.name": "Включить индивидуальную ширину заметок",
+	"settings.enable_per_note.desc": "Разрешить задавать отдельную ширину для каждой заметки через свойства заметки.",
+	"settings.yaml_key.name": "Ключ YAML свойства заметки",
+	"settings.yaml_key.desc": "Укажите ключ YAML свойства заметки для задания пользовательской ширины редактора.",
+
+	// Settings — Code Block
+	"settings.enable_code_block.name": "Включить регулировку ширины блоков кода",
+	"settings.enable_code_block.desc": "Управлять шириной блоков кода независимо от ширины редактора.",
+	"settings.code_block_unit.name": "Единица ширины блоков кода",
+	"settings.code_block_unit.desc": "Выберите единицу для ширины блоков кода (%, px или ch).",
+	"settings.code_block_width.name": "Ширина блоков кода",
+	"settings.code_block_width.desc": "Установите ширину ({{unit}}) для блоков кода. Диапазон: {{min}}\u2013{{max}}",
+	"settings.reading_mode.name": "В режиме просмотра",
+	"settings.reading_mode.desc": "Применять ширину блоков кода в режиме просмотра.",
+	"settings.source_mode.name": "В режиме просмотра исходного кода",
+	"settings.source_mode.desc": "Применять ширину блоков кода в режиме просмотра исходного кода.",
+	"settings.live_preview.name": "В режиме динамического просмотра",
+	"settings.live_preview.desc": "Применять ширину блоков кода в режиме динамического просмотра.",
+
+	// Plugin info
+	"plugin.loaded": "{{name}} v{{version}} загружен!",
+	"plugin.unloaded": "{{name}} v{{version}} выгружен!",
+};
+
+// ============================
 // Locale registry
 // ============================
 
 const translations: Record<string, Translations> = {
 	en,
 	de,
+	ru,
 	"en-gb": en, // en-GB uses English translations
 };
 
