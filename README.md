@@ -17,7 +17,7 @@ Control the line width of every note in Obsidian — individually, per note, or 
 - **Three width units** — `%`, `px`, `ch`
 - **Independent code block width** — so narrow prose and wide code can coexist
 - **Hotkey-ready commands** for every width operation
-- **Full English and German UI**
+- **Full English, German and Russian UI**
 
 ## Installation
 
