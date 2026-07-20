@@ -24,6 +24,8 @@ export interface CustomNoteWidthSettings
 	enableSlider: boolean;
 	enableTextInput: boolean;
 	enablePerNoteWidth: boolean;
+	/** Whether to automatically write the width to YAML frontmatter when the slider changes. */
+	autoSaveYaml: boolean;
 	unitRanges: Record<WidthUnit, UnitRange>;
 	enableCodeBlockWidth: boolean;
 	codeBlockWidth: number;
@@ -50,6 +52,7 @@ export default class SettingsManager
 		enableSlider: true,
 		enableTextInput: true,
 		enablePerNoteWidth: true,
+		autoSaveYaml: true,
 		unitRanges: {
 			'%': { min: 0, max: 100 },
 			'px': { min: 100, max: 4000 },
@@ -140,6 +143,16 @@ export default class SettingsManager
 	public getEnablePerNoteWidth(): boolean
 	{
 		return this.getSetting("enablePerNoteWidth");
+	}
+
+	/**
+	 * Retrieves the auto-save YAML setting.
+	 * When enabled, slider changes are automatically persisted to YAML frontmatter.
+	 * @returns - Whether auto-save to YAML is enabled.
+	 */
+	public getAutoSaveYaml(): boolean
+	{
+		return this.getSetting("autoSaveYaml");
 	}
 
 	/**
@@ -292,6 +305,12 @@ export default class SettingsManager
 		if (loaded && !('controlMode' in loaded))
 		{
 			loaded.controlMode = 'slider';
+		}
+
+		// Ensure autoSaveYaml exists (migration from versions before the toggle was added)
+		if (loaded && !('autoSaveYaml' in loaded))
+		{
+			loaded.autoSaveYaml = true;
 		}
 		if (loaded && (!('pillsPresets' in loaded) || !Array.isArray(loaded.pillsPresets) || loaded.pillsPresets.length !== PILLS_PRESET_COUNT))
 		{

@@ -100,6 +100,8 @@ const en: Translations = {
 	// Settings — Per-Note
 	"settings.enable_per_note.name": "Enable per-note width",
 	"settings.enable_per_note.desc": "Enable to set individual widths per note via YAML frontmatter.",
+	"settings.auto_save_yaml.name": "Automatically save to YAML",
+	"settings.auto_save_yaml.desc": "When enabled, slider changes are immediately saved to the note's YAML frontmatter. Disable to use the slider without modifying the file.",
 	"settings.yaml_key.name": "YAML front matter key",
 	"settings.yaml_key.desc": "Specify the YAML front matter key to use for setting the custom width of the editor.",
 
@@ -178,8 +180,10 @@ const de: Translations = {
 	// Settings — Per-Note
 	"settings.enable_per_note.name": "Individuelle Notizbreite",
 	"settings.enable_per_note.desc": "Individuelle Breite pro Notiz per YAML-Frontmatter setzen.",
-	"settings.yaml_key.name": "YAML-Frontmatter-Schl\u00FCssel",
-	"settings.yaml_key.desc": "YAML-Frontmatter-Schl\u00FCssel f\u00FCr die individuelle Breite festlegen.",
+	"settings.auto_save_yaml.name": "Automatisch in YAML speichern",
+	"settings.auto_save_yaml.desc": "Wenn aktiviert, werden Schieberegler-Änderungen sofort im YAML-Frontmatter gespeichert. Deaktivieren, um den Schieberegler ohne Dateiänderung zu nutzen.",
+	"settings.yaml_key.name": "YAML-Frontmatter-Schlüssel",
+	"settings.yaml_key.desc": "YAML-Frontmatter-Schlüssel für die individuelle Breite festlegen.",
 
 	// Settings — Code Block
 	"settings.enable_code_block.name": "Codeblock-Breite aktivieren",
@@ -256,6 +260,8 @@ const ru: Translations = {
 	// Settings — Per-Note
 	"settings.enable_per_note.name": "Включить индивидуальную ширину заметок",
 	"settings.enable_per_note.desc": "Разрешить задавать отдельную ширину для каждой заметки через свойства заметки.",
+	"settings.auto_save_yaml.name": "Автоматически сохранять в YAML",
+	"settings.auto_save_yaml.desc": "Когда включено, изменения ползунка сразу сохраняются в YAML-свойства заметки. Отключите, чтобы использовать ползунок без изменения файла.",
 	"settings.yaml_key.name": "Ключ YAML свойства заметки",
 	"settings.yaml_key.desc": "Укажите ключ YAML свойства заметки для управления шириной редактора.",
 

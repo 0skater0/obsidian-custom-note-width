@@ -390,9 +390,25 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 				});
 			});
 
-		// Only show YAML key setting if per-note width is enabled
+		// Only show per-note sub-settings if per-note width is enabled
 		if (this.plugin.settingsManager.getEnablePerNoteWidth())
 		{
+			// Auto-save to YAML toggle
+			new Setting(containerEl)
+				.setName(t("settings.auto_save_yaml.name"))
+				.setDesc(t("settings.auto_save_yaml.desc"))
+				.addToggle((cb: ToggleComponent) =>
+				{
+					cb.setValue(this.plugin.settingsManager.getAutoSaveYaml());
+					cb.onChange(async (value: boolean) =>
+					{
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							autoSaveYaml: value,
+						});
+					});
+				});
+
 			new Setting(containerEl)
 				.setName(t("settings.yaml_key.name"))
 				.setDesc(t("settings.yaml_key.desc"))

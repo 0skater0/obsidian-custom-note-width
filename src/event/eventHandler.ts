@@ -113,7 +113,8 @@ export default class EventHandler
 	 */
 	private saveWidth(wv: WidthValue): void
 	{
-		if (this.plugin.settingsManager.getEnablePerNoteWidth())
+		if (this.plugin.settingsManager.getEnablePerNoteWidth()
+			&& this.plugin.settingsManager.getAutoSaveYaml())
 		{
 			// Per-note: debounce save to YAML frontmatter
 			if (this.updateTimeout) clearTimeout(this.updateTimeout);
