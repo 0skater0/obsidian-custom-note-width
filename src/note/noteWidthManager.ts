@@ -24,6 +24,13 @@ export default class NoteWidthManager
 	private leafCodeBlockRules: Map<string, string> = new Map();
 	/** Counter for generating unique leaf IDs. */
 	private leafIdCounter: number = 0;
+	/**
+	 * Session-only widths keyed by file path, used when auto-save to YAML is
+	 * disabled: the slider adjusts the visual width without modifying the file,
+	 * and this map keeps the adjustment alive across tab switches and layout
+	 * changes. Cleared on plugin restart.
+	 */
+	private tempWidths: Map<string, WidthValue> = new Map();
 
 	/**
 	 * Constructs a new NoteWidthManager instance.
@@ -123,6 +130,15 @@ export default class NoteWidthManager
 			return defaultWv;
 		}
 
+		// Session-only width set via the slider with auto-save to YAML
+		// disabled: it takes precedence over the frontmatter so the
+		// adjustment survives tab switches and layout changes.
+		const temp = this.tempWidths.get(file.path);
+		if (temp)
+		{
+			return temp;
+		}
+
 		const yamlKey = this.plugin.settingsManager.getYAMLKey();
 		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
 
@@ -187,6 +203,28 @@ export default class NoteWidthManager
 	}
 
 	/**
+	 * Stores a session-only width for a file. Used when auto-save to YAML is
+	 * disabled so the visual adjustment survives tab switches and layout
+	 * changes. Cleared on plugin restart.
+	 * @param path - The file path.
+	 * @param wv - The WidthValue to apply for this session.
+	 */
+	public setTempWidth(path: string, wv: WidthValue): void
+	{
+		this.tempWidths.set(path, wv);
+	}
+
+	/**
+	 * Removes a session-only width for a file. Used when auto-save to YAML is
+	 * re-enabled so the frontmatter becomes authoritative again.
+	 * @param path - The file path.
+	 */
+	public clearTempWidth(path: string): void
+	{
+		this.tempWidths.delete(path);
+	}
+
+	/**
 	 * Removes all custom width styles from all views and clears leaf rules.
 	 */
 	public removeNoteWidthEditorStyle(): void
@@ -211,6 +249,7 @@ export default class NoteWidthManager
 	public destroy(): void
 	{
 		this.removeNoteWidthEditorStyle();
+		this.tempWidths.clear();
 		this.styleElement.remove();
 	}
 

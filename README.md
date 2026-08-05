@@ -78,6 +78,7 @@ Enable under **Settings → Control mode → Pills**. The status bar shows three
 | **px range** | Min / max for pixel unit | `100 / 4000` |
 | **ch range** | Min / max for character unit | `10 / 200` |
 | **Enable per-note width** | Store widths in YAML frontmatter | `on` |
+| **Automatically save to YAML** *(per-note mode)* | Persist width changes to YAML frontmatter. Turn off to adjust the width visually for this session only, without modifying the file — useful in shared vaults | `on` |
 | **YAML front matter key** | Key used for per-note widths | `custom-width` |
 | **Enable code block width** | Give code blocks an independent width | `off` |
 | **Code block width unit** | Unit for code block width | `px` |

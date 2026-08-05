@@ -107,15 +107,30 @@ export default class EventHandler
 
 	/**
 	 * Saves the width value based on the current per-note setting.
-	 * If per-note width is enabled, debounces a YAML write.
-	 * If disabled, saves as the default width.
+	 * If per-note width is enabled:
+	 *   - with auto-save to YAML on: debounces a YAML frontmatter write
+	 *   - with auto-save off: stores the width in memory for this session only
+	 * If per-note width is disabled, saves as the default width.
 	 * @param wv - The WidthValue to save.
 	 */
 	private saveWidth(wv: WidthValue): void
 	{
-		if (this.plugin.settingsManager.getEnablePerNoteWidth()
-			&& this.plugin.settingsManager.getAutoSaveYaml())
+		if (this.plugin.settingsManager.getEnablePerNoteWidth())
 		{
+			const file = this.app.workspace.getActiveFile();
+
+			// Per-note: auto-save to YAML disabled — keep the width in memory
+			// for this session only (visual adjustment without touching the file).
+			if (!this.plugin.settingsManager.getAutoSaveYaml())
+			{
+				if (file) this.plugin.noteWidthManager.setTempWidth(file.path, wv);
+				return;
+			}
+
+			// Drop any stale session-only width for this note: the YAML
+			// frontmatter becomes authoritative again.
+			if (file) this.plugin.noteWidthManager.clearTempWidth(file.path);
+
 			// Per-note: debounce save to YAML frontmatter
 			if (this.updateTimeout) clearTimeout(this.updateTimeout);
 			this.updateTimeout = window.setTimeout(async () =>
