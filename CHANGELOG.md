@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 2.3.0 — 2026-08-06
+
+### Added
+- **Per-note width storage modes** — the old *Automatically save to YAML* toggle became a three-way choice under *Enable per-note width* (#11). Thanks to @koloved.
+  - **Frontmatter** *(default)*: writes to the note's YAML, the previous behaviour. Existing installs migrate here automatically, no visible change.
+  - **Locally**: widths persisted per note in the plugin's `data.json`, the note file is never touched. Rename and delete listeners keep the map in sync with the vault.
+  - **View only**: kept in memory as long as the note is open somewhere, dropped once every leaf showing it is closed.
+- **Reset local overrides** dialog with a search filter and per-item checkboxes, so a single note or the whole set can be cleared explicitly.
+
+### Changed
+- Setting descriptions rewritten around the three per-note modes so the difference between them is clear at first read.
+
+### Fixed
+- The settings tab no longer jumps back to the top when a toggle rebuilds the panel.
+
 ## 2.2.0 — 2026-06-10
 
 ### Added
