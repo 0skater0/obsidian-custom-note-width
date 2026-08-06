@@ -8,6 +8,8 @@ import {
 	PillsPreset,
 	DEFAULT_PILLS_PRESETS,
 	PILLS_PRESET_COUNT,
+	PerNoteMode,
+	WidthValue,
 } from "src/utility/config";
 import { setLocaleOverride } from "src/i18n/i18n";
 
@@ -24,8 +26,10 @@ export interface CustomNoteWidthSettings
 	enableSlider: boolean;
 	enableTextInput: boolean;
 	enablePerNoteWidth: boolean;
-	/** Whether to automatically write the width to YAML frontmatter when the slider changes. */
-	autoSaveYaml: boolean;
+	/** Where per-note widths are stored ('frontmatter', 'local', or 'view-only'). */
+	perNoteMode: PerNoteMode;
+	/** Local per-note width overrides keyed by file path, used in 'local' mode. */
+	localOverrides: Record<string, WidthValue>;
 	unitRanges: Record<WidthUnit, UnitRange>;
 	enableCodeBlockWidth: boolean;
 	codeBlockWidth: number;
@@ -52,7 +56,8 @@ export default class SettingsManager
 		enableSlider: true,
 		enableTextInput: true,
 		enablePerNoteWidth: true,
-		autoSaveYaml: true,
+		perNoteMode: 'frontmatter',
+		localOverrides: {},
 		unitRanges: {
 			'%': { min: 0, max: 100 },
 			'px': { min: 100, max: 4000 },
@@ -145,14 +150,16 @@ export default class SettingsManager
 		return this.getSetting("enablePerNoteWidth");
 	}
 
-	/**
-	 * Retrieves the auto-save YAML setting.
-	 * When enabled, slider changes are automatically persisted to YAML frontmatter.
-	 * @returns - Whether auto-save to YAML is enabled.
-	 */
-	public getAutoSaveYaml(): boolean
+	/** Retrieves the per-note storage mode. */
+	public getPerNoteMode(): PerNoteMode
 	{
-		return this.getSetting("autoSaveYaml");
+		return this.getSetting("perNoteMode");
+	}
+
+	/** Retrieves the local overrides map. */
+	public getLocalOverrides(): Record<string, WidthValue>
+	{
+		return this.getSetting("localOverrides");
 	}
 
 	/**
@@ -307,11 +314,21 @@ export default class SettingsManager
 			loaded.controlMode = 'slider';
 		}
 
-		// Ensure autoSaveYaml exists (migration from versions before the toggle was added)
-		if (loaded && !('autoSaveYaml' in loaded))
+		// Migrate autoSaveYaml (old boolean toggle) to the three-way perNoteMode.
+		if (loaded && !('perNoteMode' in loaded))
 		{
-			loaded.autoSaveYaml = true;
+			loaded.perNoteMode = (loaded.autoSaveYaml === false) ? 'view-only' : 'frontmatter';
 		}
+		if (loaded && 'autoSaveYaml' in loaded)
+		{
+			delete loaded.autoSaveYaml;
+		}
+
+		if (loaded && !('localOverrides' in loaded))
+		{
+			loaded.localOverrides = {};
+		}
+
 		if (loaded && (!('pillsPresets' in loaded) || !Array.isArray(loaded.pillsPresets) || loaded.pillsPresets.length !== PILLS_PRESET_COUNT))
 		{
 			loaded.pillsPresets = [...DEFAULT_PILLS_PRESETS];
@@ -331,6 +348,41 @@ export default class SettingsManager
 	{
 		this.settings = settings;
 		await this.plugin.saveData(settings);
+	}
+
+	/** Stores a per-note width in the local overrides map and persists it. */
+	public async setLocalOverride(path: string, wv: WidthValue): Promise<void>
+	{
+		const updated = { ...this.settings.localOverrides, [path]: wv };
+		await this.saveSettings({ ...this.settings, localOverrides: updated });
+	}
+
+	/** Removes a per-note width from the local overrides map. */
+	public async clearLocalOverride(path: string): Promise<void>
+	{
+		if (!(path in this.settings.localOverrides)) return;
+		const updated = { ...this.settings.localOverrides };
+		delete updated[path];
+		await this.saveSettings({ ...this.settings, localOverrides: updated });
+	}
+
+	/** Moves a local override to a new path (used on rename). */
+	public async renameLocalOverride(oldPath: string, newPath: string): Promise<void>
+	{
+		if (!(oldPath in this.settings.localOverrides)) return;
+		const updated = { ...this.settings.localOverrides };
+		updated[newPath] = updated[oldPath];
+		delete updated[oldPath];
+		await this.saveSettings({ ...this.settings, localOverrides: updated });
+	}
+
+	/** Clears every local override. Returns the number that were removed. */
+	public async clearAllLocalOverrides(): Promise<number>
+	{
+		const count = Object.keys(this.settings.localOverrides).length;
+		if (count === 0) return 0;
+		await this.saveSettings({ ...this.settings, localOverrides: {} });
+		return count;
 	}
 
 }

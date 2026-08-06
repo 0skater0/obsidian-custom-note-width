@@ -64,6 +64,14 @@ const en: Translations = {
 
 	// Notices
 	"notice.slider_too_large": "Slider too large!",
+	"notice.local_overrides_cleared": "Removed {{count}} local width override(s).",
+	"notice.local_overrides_empty": "No local width overrides to clear.",
+	"modal.reset_overrides.title": "Reset local width overrides",
+	"modal.reset_overrides.desc": "{{count}} note(s) have a locally stored width. Pick which ones to remove.",
+	"modal.reset_overrides.search_placeholder": "Filter by path…",
+	"modal.reset_overrides.select_all": "Select all",
+	"modal.reset_overrides.empty_filter": "No matches.",
+	"modal.reset_overrides.remove": "Remove {{count}}",
 
 	// Progress modals
 	"progress.changing_keys": "Changing all YAML-Frontmatter keys...",
@@ -99,11 +107,17 @@ const en: Translations = {
 
 	// Settings — Per-Note
 	"settings.enable_per_note.name": "Enable per-note width",
-	"settings.enable_per_note.desc": "Enable to set individual widths per note via YAML frontmatter.",
-	"settings.auto_save_yaml.name": "Automatically save to YAML",
-	"settings.auto_save_yaml.desc": "When enabled, width adjustments are written to the note's YAML frontmatter. Disable to adjust the width for this session only, without modifying the file.",
+	"settings.enable_per_note.desc": "When on, notes can have their own width instead of using the global default.",
+	"settings.per_note_mode.name": "Where per-note width is stored",
+	"settings.per_note_mode.desc": "Choose where per-note widths live. 'Frontmatter' writes them into the note itself. 'Locally' saves them per note inside the plugin without touching the file. 'View only' keeps the change until the note is closed, then discards it.",
+	"settings.per_note_mode.option.frontmatter": "Frontmatter",
+	"settings.per_note_mode.option.local": "Locally",
+	"settings.per_note_mode.option.view_only": "View only",
+	"settings.reset_local_overrides.name": "Reset local width overrides",
+	"settings.reset_local_overrides.desc": "Remove every per-note width you have stored locally.",
+	"settings.reset_local_overrides.button": "Reset",
 	"settings.yaml_key.name": "YAML front matter key",
-	"settings.yaml_key.desc": "Specify the YAML front matter key to use for setting the custom width of the editor.",
+	"settings.yaml_key.desc": "Frontmatter key used to store the per-note width.",
 
 	// Settings — Code Block
 	"settings.enable_code_block.name": "Enable code block width",
@@ -144,6 +158,14 @@ const de: Translations = {
 
 	// Notices
 	"notice.slider_too_large": "Schieberegler zu gro\u00DF!",
+	"notice.local_overrides_cleared": "{{count}} lokale Breite(n) entfernt.",
+	"notice.local_overrides_empty": "Keine lokalen Breiten zum Zur\u00FCcksetzen.",
+	"modal.reset_overrides.title": "Lokale Notizbreiten zur\u00FCcksetzen",
+	"modal.reset_overrides.desc": "{{count}} Notiz(en) haben eine lokal gespeicherte Breite. W\u00E4hle aus, welche entfernt werden sollen.",
+	"modal.reset_overrides.search_placeholder": "Nach Pfad filtern\u2026",
+	"modal.reset_overrides.select_all": "Alle ausw\u00E4hlen",
+	"modal.reset_overrides.empty_filter": "Keine Treffer.",
+	"modal.reset_overrides.remove": "{{count}} entfernen",
 
 	// Progress modals
 	"progress.changing_keys": "YAML-Frontmatter-Schl\u00FCssel werden ge\u00E4ndert\u2026",
@@ -179,11 +201,17 @@ const de: Translations = {
 
 	// Settings — Per-Note
 	"settings.enable_per_note.name": "Individuelle Notizbreite",
-	"settings.enable_per_note.desc": "Individuelle Breite pro Notiz per YAML-Frontmatter setzen.",
-	"settings.auto_save_yaml.name": "Automatisch in YAML speichern",
-	"settings.auto_save_yaml.desc": "Wenn aktiviert, werden Breitenänderungen im YAML-Frontmatter der Notiz gespeichert. Deaktivieren, um die Breite nur für diese Sitzung anzupassen, ohne die Datei zu verändern.",
+	"settings.enable_per_note.desc": "Wenn aktiviert, können Notizen eine eigene Breite statt der globalen Standardbreite haben.",
+	"settings.per_note_mode.name": "Wo die Notizbreite gespeichert wird",
+	"settings.per_note_mode.desc": "Wähle, wo Notizbreiten liegen. 'Frontmatter' schreibt sie in die Notiz selbst. 'Lokal' speichert sie pro Notiz im Plugin, ohne die Datei anzufassen. 'Nur in der Ansicht' behält die Änderung, bis die Notiz geschlossen wird, dann wird sie verworfen.",
+	"settings.per_note_mode.option.frontmatter": "Frontmatter",
+	"settings.per_note_mode.option.local": "Lokal",
+	"settings.per_note_mode.option.view_only": "Nur in der Ansicht",
+	"settings.reset_local_overrides.name": "Lokale Notizbreiten zurücksetzen",
+	"settings.reset_local_overrides.desc": "Entfernt alle lokal gespeicherten Breiten für einzelne Notizen.",
+	"settings.reset_local_overrides.button": "Zurücksetzen",
 	"settings.yaml_key.name": "YAML-Frontmatter-Schlüssel",
-	"settings.yaml_key.desc": "YAML-Frontmatter-Schlüssel für die individuelle Breite festlegen.",
+	"settings.yaml_key.desc": "Frontmatter-Schlüssel für die Notizbreite.",
 
 	// Settings — Code Block
 	"settings.enable_code_block.name": "Codeblock-Breite aktivieren",
@@ -224,6 +252,14 @@ const ru: Translations = {
 
 	// Notices
 	"notice.slider_too_large": "Значение ползунка слишком большое!",
+	"notice.local_overrides_cleared": "Удалено локальных ширин: {{count}}.",
+	"notice.local_overrides_empty": "Нет локальных ширин для сброса.",
+	"modal.reset_overrides.title": "Сброс локальных ширин заметок",
+	"modal.reset_overrides.desc": "У {{count}} заметок(и) есть локально сохранённая ширина. Выберите, какие удалить.",
+	"modal.reset_overrides.search_placeholder": "Фильтр по пути…",
+	"modal.reset_overrides.select_all": "Выбрать все",
+	"modal.reset_overrides.empty_filter": "Нет совпадений.",
+	"modal.reset_overrides.remove": "Удалить: {{count}}",
 
 	// Progress modals
 	"progress.changing_keys": "Изменение всех ключей YAML свойств заметки…",
@@ -259,11 +295,17 @@ const ru: Translations = {
 
 	// Settings — Per-Note
 	"settings.enable_per_note.name": "Включить индивидуальную ширину заметок",
-	"settings.enable_per_note.desc": "Разрешить задавать отдельную ширину для каждой заметки через свойства заметки.",
-	"settings.auto_save_yaml.name": "Автоматически сохранять в YAML",
-	"settings.auto_save_yaml.desc": "Когда включено, изменения ширины сохраняются в YAML-свойства заметки. Отключите, чтобы менять ширину только на время сеанса, не изменяя файл.",
+	"settings.enable_per_note.desc": "Если включено, заметки могут иметь собственную ширину вместо глобальной по умолчанию.",
+	"settings.per_note_mode.name": "Где хранится ширина заметки",
+	"settings.per_note_mode.desc": "Выберите, где хранятся ширины заметок. 'Frontmatter' записывает их в саму заметку. 'Локально' сохраняет их для каждой заметки в плагине, не трогая файл. 'Только в виде' сохраняет изменение до закрытия заметки, затем сбрасывает.",
+	"settings.per_note_mode.option.frontmatter": "Frontmatter",
+	"settings.per_note_mode.option.local": "Локально",
+	"settings.per_note_mode.option.view_only": "Только в виде",
+	"settings.reset_local_overrides.name": "Сбросить локальные ширины",
+	"settings.reset_local_overrides.desc": "Удалить все локально сохранённые ширины для отдельных заметок.",
+	"settings.reset_local_overrides.button": "Сбросить",
 	"settings.yaml_key.name": "Ключ YAML свойства заметки",
-	"settings.yaml_key.desc": "Укажите ключ YAML свойства заметки для управления шириной редактора.",
+	"settings.yaml_key.desc": "Ключ свойства для хранения ширины заметки.",
 
 	// Settings — Code Block
 	"settings.enable_code_block.name": "Включить регулировку ширины блоков кода",

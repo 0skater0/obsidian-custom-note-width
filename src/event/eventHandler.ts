@@ -1,7 +1,7 @@
-import { App, Notice, WorkspaceLeaf } from "obsidian";
+import { App, Notice, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import CustomNoteWidth from "src/main";
 import { t } from "src/i18n/i18n";
-import { isActiveLeafMarkdown, validateWidth } from "src/utility/utilities";
+import { getActiveMarkdownView, isActiveLeafMarkdown, validateWidth } from "src/utility/utilities";
 import { CONFIG, WidthUnit, WidthValue, formatWidthForYaml } from "src/utility/config";
 
 /**
@@ -29,6 +29,8 @@ export default class EventHandler
 		this.plugin.registerEvent(this.app.workspace.on("resize", this.handleResize));
 		this.plugin.registerEvent(this.app.workspace.on("active-leaf-change", this.handleActiveLeafChange));
 		this.plugin.registerEvent(this.app.workspace.on("layout-change", this.handleLayoutChange));
+		this.plugin.registerEvent(this.app.vault.on("rename", this.handleFileRename));
+		this.plugin.registerEvent(this.app.vault.on("delete", this.handleFileDelete));
 	}
 
 	/**
@@ -42,6 +44,10 @@ export default class EventHandler
 		this.app.workspace.off("active-leaf-change", this.handleActiveLeafChange as any);
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		this.app.workspace.off("layout-change", this.handleLayoutChange as any);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		this.app.vault.off("rename", this.handleFileRename as any);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		this.app.vault.off("delete", this.handleFileDelete as any);
 	}
 
 	/**
@@ -96,42 +102,58 @@ export default class EventHandler
 	};
 
 	/**
-	 * Handles the layout-change event.
-	 * Suppressed briefly after YAML writes to avoid stale metadataCache reads.
+	 * Handles the layout-change event: drops view-only widths for files that are no
+	 * longer open in any leaf, then re-applies width for the active leaf (unless a
+	 * recent YAML write asked to suppress this cycle to avoid a stale metadataCache read).
 	 */
 	private handleLayoutChange = (): void =>
 	{
+		this.plugin.noteWidthManager.cleanupViewOnlyWidths();
 		if (this.layoutChangeSuppressed) return;
 		this.plugin.noteWidthManager.applyWidthForLeaf();
 	};
 
+	/** Moves per-note storage to the new path so a later note at the old path cannot inherit it. */
+	private handleFileRename = async (file: TAbstractFile, oldPath: string): Promise<void> =>
+	{
+		if (!(file instanceof TFile)) return;
+		await this.plugin.settingsManager.renameLocalOverride(oldPath, file.path);
+		this.plugin.noteWidthManager.renameViewOnlyWidth(oldPath, file.path);
+	};
+
+	/** Drops per-note storage for a deleted file so its path cannot be inherited. */
+	private handleFileDelete = async (file: TAbstractFile): Promise<void> =>
+	{
+		if (!(file instanceof TFile)) return;
+		await this.plugin.settingsManager.clearLocalOverride(file.path);
+		this.plugin.noteWidthManager.clearViewOnlyWidth(file.path);
+	};
+
 	/**
-	 * Saves the width value based on the current per-note setting.
-	 * If per-note width is enabled:
-	 *   - with auto-save to YAML on: debounces a YAML frontmatter write
-	 *   - with auto-save off: stores the width in memory for this session only
-	 * If per-note width is disabled, saves as the default width.
+	 * Persists a width change from the status bar, according to the current per-note mode.
+	 * With per-note width disabled the value becomes the global default.
 	 * @param wv - The WidthValue to save.
 	 */
 	private saveWidth(wv: WidthValue): void
 	{
 		if (this.plugin.settingsManager.getEnablePerNoteWidth())
 		{
-			const file = this.app.workspace.getActiveFile();
+			const mode = this.plugin.settingsManager.getPerNoteMode();
+			const file = getActiveMarkdownView(this.app)?.file ?? null;
 
-			// Per-note: auto-save to YAML disabled — keep the width in memory
-			// for this session only (visual adjustment without touching the file).
-			if (!this.plugin.settingsManager.getAutoSaveYaml())
+			if (mode === 'local')
 			{
-				if (file) this.plugin.noteWidthManager.setTempWidth(file.path, wv);
+				if (file) void this.plugin.settingsManager.setLocalOverride(file.path, wv);
 				return;
 			}
 
-			// Drop any stale session-only width for this note: the YAML
-			// frontmatter becomes authoritative again.
-			if (file) this.plugin.noteWidthManager.clearTempWidth(file.path);
+			if (mode === 'view-only')
+			{
+				if (file) this.plugin.noteWidthManager.setViewOnlyWidth(file.path, wv);
+				return;
+			}
 
-			// Per-note: debounce save to YAML frontmatter
+			// 'frontmatter' mode: debounced YAML write.
 			if (this.updateTimeout) clearTimeout(this.updateTimeout);
 			this.updateTimeout = window.setTimeout(async () =>
 			{
