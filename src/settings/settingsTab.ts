@@ -3,9 +3,10 @@ import type CustomNoteWidth from "src/main";
 import DonationButton from "src/settings/donationButton";
 import YamlFrontMatterProcessor from "src/note/yamlFrontMatterProcessor";
 import ProgressBarModal from "src/modals/progressBarModal";
+import ResetOverridesModal from "src/modals/resetOverridesModal";
 import { PLUGIN_NAME } from "src/utility/constants";
 import { t, setLocaleOverride, SUPPORTED_LOCALES } from "src/i18n/i18n";
-import { WidthUnit, UNIT_CONFIGS, VALID_UNITS, UNIT_ABSOLUTE_BOUNDS, ControlMode, PillsPreset } from "src/utility/config";
+import { WidthUnit, UNIT_CONFIGS, VALID_UNITS, UNIT_ABSOLUTE_BOUNDS, ControlMode, PerNoteMode, PillsPreset } from "src/utility/config";
 
 /**
  * Represents the settings tab for the CustomNoteWidth plugin.
@@ -25,6 +26,40 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 		super(app, plugin);
 		this.donationButton = new DonationButton();
 		this.yamlProcessor = new YamlFrontMatterProcessor(app);
+	}
+
+	/**
+	 * Re-renders the settings tab without losing the current scroll position.
+	 * Obsidian rebuilds containerEl on display() and resets scroll to the top.
+	 */
+	private redrawKeepingScroll(): void
+	{
+		const scroller = this.findScrollableAncestor();
+		const scroll = scroller?.scrollTop ?? 0;
+		this.display();
+		if (scroller && scroll > 0)
+		{
+			requestAnimationFrame(() =>
+			{
+				scroller.scrollTop = scroll;
+			});
+		}
+	}
+
+	/** Finds the ancestor element that actually scrolls the settings tab. */
+	private findScrollableAncestor(): HTMLElement | null
+	{
+		let el: HTMLElement | null = this.containerEl;
+		while (el)
+		{
+			const overflowY = window.getComputedStyle(el).overflowY;
+			if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight)
+			{
+				return el;
+			}
+			el = el.parentElement;
+		}
+		return null;
 	}
 
 	public display(): void
@@ -54,7 +89,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 						...this.plugin.settingsManager.settings,
 						language: value,
 					});
-					this.display();
+					this.redrawKeepingScroll();
 				});
 			});
 
@@ -74,7 +109,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 						enableSlider: value,
 					});
 					this.plugin.uiManager.updateUI();
-					this.display();
+					this.redrawKeepingScroll();
 				});
 			});
 
@@ -96,7 +131,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 							controlMode: value as ControlMode,
 						});
 						this.plugin.uiManager.updateUI();
-						this.display();
+						this.redrawKeepingScroll();
 					});
 				});
 		}
@@ -156,7 +191,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 								pillsPresets: currentPresets,
 							});
 							this.plugin.uiManager.updateUI();
-							this.display();
+							this.redrawKeepingScroll();
 						});
 					});
 			});
@@ -227,7 +262,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 						enableTextInput: value,
 					});
 					this.plugin.uiManager.updateUI();
-					this.display();
+					this.redrawKeepingScroll();
 				});
 			});
 
@@ -262,7 +297,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 						defaultWidth: currentWidth,
 					});
 					this.plugin.uiManager.updateUI();
-					this.display();
+					this.redrawKeepingScroll();
 				});
 			});
 
@@ -386,13 +421,75 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 						...this.plugin.settingsManager.settings,
 						enablePerNoteWidth: value,
 					});
-					this.display();
+					// Discard any session-only widths so the frontmatter is
+					// authoritative again as soon as per-note mode is toggled.
+					this.plugin.noteWidthManager.clearAllViewOnlyWidths();
+					this.plugin.noteWidthManager.applyWidthForLeaf();
+					this.redrawKeepingScroll();
 				});
 			});
 
-		// Only show YAML key setting if per-note width is enabled
+		// Only show per-note sub-settings if per-note width is enabled
 		if (this.plugin.settingsManager.getEnablePerNoteWidth())
 		{
+			// Per-note storage mode
+			new Setting(containerEl)
+				.setName(t("settings.per_note_mode.name"))
+				.setDesc(t("settings.per_note_mode.desc"))
+				.addDropdown((dropdown) =>
+				{
+					dropdown.addOption("frontmatter", t("settings.per_note_mode.option.frontmatter"));
+					dropdown.addOption("local", t("settings.per_note_mode.option.local"));
+					dropdown.addOption("view-only", t("settings.per_note_mode.option.view_only"));
+					dropdown.setValue(this.plugin.settingsManager.getPerNoteMode());
+					dropdown.onChange(async (value) =>
+					{
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							perNoteMode: value as PerNoteMode,
+						});
+						// A mode switch invalidates the previous source of
+						// truth. Drop session-only widths so the new mode is
+						// visible immediately without a stale value shadowing
+						// the frontmatter (or a local override).
+						this.plugin.noteWidthManager.clearAllViewOnlyWidths();
+						this.plugin.noteWidthManager.applyWidthForLeaf();
+						this.redrawKeepingScroll();
+					});
+				});
+
+			// Reset button for local overrides — only relevant in 'local' mode
+			if (this.plugin.settingsManager.getPerNoteMode() === 'local')
+			{
+				new Setting(containerEl)
+					.setName(t("settings.reset_local_overrides.name"))
+					.setDesc(t("settings.reset_local_overrides.desc"))
+					.addButton((btn) =>
+					{
+						btn.setButtonText(t("settings.reset_local_overrides.button"));
+						btn.setWarning();
+						btn.onClick(() =>
+						{
+							const overrides = this.plugin.settingsManager.getLocalOverrides();
+							if (Object.keys(overrides).length === 0)
+							{
+								new Notice(t("notice.local_overrides_empty"));
+								return;
+							}
+							new ResetOverridesModal(this.app, overrides, async (paths) =>
+							{
+								if (paths.length === 0) return;
+								for (const path of paths)
+								{
+									await this.plugin.settingsManager.clearLocalOverride(path);
+								}
+								new Notice(t("notice.local_overrides_cleared", { count: paths.length }));
+								this.plugin.noteWidthManager.applyWidthForLeaf();
+							}).open();
+						});
+					});
+			}
+
 			new Setting(containerEl)
 				.setName(t("settings.yaml_key.name"))
 				.setDesc(t("settings.yaml_key.desc"))
@@ -450,7 +547,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 						enableCodeBlockWidth: value,
 					});
 					this.plugin.noteWidthManager.applyWidthForLeaf();
-					this.display();
+					this.redrawKeepingScroll();
 				});
 			});
 
@@ -484,7 +581,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 							codeBlockWidth: currentWidth,
 						});
 						this.plugin.noteWidthManager.applyWidthForLeaf();
-						this.display();
+						this.redrawKeepingScroll();
 					});
 				});
 

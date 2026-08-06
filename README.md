@@ -12,7 +12,7 @@ Control the line width of every note in Obsidian — individually, per note, or 
 
 ## Features
 
-- **Per-note widths** via YAML frontmatter
+- **Per-note widths** — stored in the note's frontmatter, kept locally on your device, or held only until the note is closed
 - **Status-bar controls** — choose between a classic slider or *Pills* (three preset buttons)
 - **Three width units** — `%`, `px`, `ch`
 - **Independent code block width** — so narrow prose and wide code can coexist
@@ -77,8 +77,10 @@ Enable under **Settings → Control mode → Pills**. The status bar shows three
 | **% range** | Min / max for percentage unit | `0 / 100` |
 | **px range** | Min / max for pixel unit | `100 / 4000` |
 | **ch range** | Min / max for character unit | `10 / 200` |
-| **Enable per-note width** | Store widths in YAML frontmatter | `on` |
-| **YAML front matter key** | Key used for per-note widths | `custom-width` |
+| **Enable per-note width** | Let notes have their own width instead of the global default | `on` |
+| **Where per-note width is stored** *(per-note mode)* | Frontmatter (in the note), Local (kept in the plugin, note untouched), or View only (kept until the note is closed) | `frontmatter` |
+| **Reset local width overrides** *(local mode)* | Removes every per-note width you have stored locally | button |
+| **YAML front matter key** | Frontmatter key used to store the per-note width | `custom-width` |
 | **Enable code block width** | Give code blocks an independent width | `off` |
 | **Code block width unit** | Unit for code block width | `px` |
 | **Code block width** | Size applied to code blocks | `800` |

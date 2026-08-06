@@ -24,6 +24,8 @@ export default class NoteWidthManager
 	private leafCodeBlockRules: Map<string, string> = new Map();
 	/** Counter for generating unique leaf IDs. */
 	private leafIdCounter: number = 0;
+	/** Session-only widths (per-note mode 'view-only'), dropped when the note is closed. */
+	private viewOnlyWidths: Map<string, WidthValue> = new Map();
 
 	/**
 	 * Constructs a new NoteWidthManager instance.
@@ -123,6 +125,29 @@ export default class NoteWidthManager
 			return defaultWv;
 		}
 
+		const mode = this.plugin.settingsManager.getPerNoteMode();
+
+		// In 'local' / 'view-only' the per-mode store shadows the frontmatter;
+		// the frontmatter still acts as the initial value when no entry exists.
+		if (mode === 'local')
+		{
+			const override = this.plugin.settingsManager.getLocalOverrides()[file.path];
+			if (override)
+			{
+				const unitConfig = this.plugin.settingsManager.getUnitConfig(override.unit);
+				return validateWidthValue(override, unitConfig);
+			}
+		}
+		else if (mode === 'view-only')
+		{
+			const view = this.viewOnlyWidths.get(file.path);
+			if (view)
+			{
+				const unitConfig = this.plugin.settingsManager.getUnitConfig(view.unit);
+				return validateWidthValue(view, unitConfig);
+			}
+		}
+
 		const yamlKey = this.plugin.settingsManager.getYAMLKey();
 		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
 
@@ -186,6 +211,58 @@ export default class NoteWidthManager
 		this.plugin.uiManager.updatePillsActiveState(wv);
 	}
 
+	/** Stores a view-only width for a file. */
+	public setViewOnlyWidth(path: string, wv: WidthValue): void
+	{
+		this.viewOnlyWidths.set(path, wv);
+	}
+
+	/** Removes the view-only width for a file. */
+	public clearViewOnlyWidth(path: string): void
+	{
+		this.viewOnlyWidths.delete(path);
+	}
+
+	/** Moves a view-only entry to a new path (used on rename). */
+	public renameViewOnlyWidth(oldPath: string, newPath: string): void
+	{
+		const wv = this.viewOnlyWidths.get(oldPath);
+		if (!wv) return;
+		this.viewOnlyWidths.delete(oldPath);
+		this.viewOnlyWidths.set(newPath, wv);
+	}
+
+	/** Drops view-only entries for files that no longer have any open leaf. */
+	public cleanupViewOnlyWidths(): void
+	{
+		if (this.viewOnlyWidths.size === 0) return;
+
+		const openPaths = new Set<string>();
+		this.app.workspace.iterateAllLeaves((leaf) =>
+		{
+			if (leaf.view instanceof MarkdownView && leaf.view.file)
+			{
+				openPaths.add(leaf.view.file.path);
+			}
+		});
+
+		for (const path of this.viewOnlyWidths.keys())
+		{
+			if (!openPaths.has(path))
+			{
+				this.viewOnlyWidths.delete(path);
+			}
+		}
+	}
+
+	/** Removes every view-only entry. Returns the number that were removed. */
+	public clearAllViewOnlyWidths(): number
+	{
+		const count = this.viewOnlyWidths.size;
+		this.viewOnlyWidths.clear();
+		return count;
+	}
+
 	/**
 	 * Removes all custom width styles from all views and clears leaf rules.
 	 */
@@ -211,6 +288,7 @@ export default class NoteWidthManager
 	public destroy(): void
 	{
 		this.removeNoteWidthEditorStyle();
+		this.viewOnlyWidths.clear();
 		this.styleElement.remove();
 	}
 

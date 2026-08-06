@@ -64,6 +64,19 @@ export interface UnitRange
 export type ControlMode = 'slider' | 'pills';
 
 /**
+ * Where per-note widths are stored when `enablePerNoteWidth` is on.
+ * - 'frontmatter' writes to the note's YAML frontmatter (original behaviour, shared across devices).
+ * - 'local' persists per-note widths in the plugin's data.json, keeping the note file untouched.
+ * - 'view-only' keeps the adjustment in memory while the note is open, then discards it.
+ */
+export type PerNoteMode = 'frontmatter' | 'local' | 'view-only';
+
+/**
+ * Ordered list of valid per-note storage modes.
+ */
+export const VALID_PER_NOTE_MODES: PerNoteMode[] = ['frontmatter', 'local', 'view-only'];
+
+/**
  * A single pills preset: width value with its unit.
  */
 export interface PillsPreset
