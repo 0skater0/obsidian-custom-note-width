@@ -139,24 +139,26 @@ export default class UIElementCreator
 	private createAndConfigureText(slider: HTMLInputElement | null, widthValue?: string): HTMLElement | null
 	{
 		const display = this.plugin.settingsManager.getStatusBarValueDisplay();
-		if (display === 'hidden') return null;
-
 		const editable = display === 'editable';
 		let sliderValueText: HTMLElement | null = null;
 
 		if (slider)
 		{
-			sliderValueText = this.createTextInput(slider, editable);
-			if (sliderValueText)
+			// Text element exists only when the value display is not hidden.
+			if (display !== 'hidden')
 			{
-				if (editable)
-				{
-					this.plugin.eventHandler.handleTextInputEvent(slider, sliderValueText);
-				}
-				else
-				{
-					this.plugin.eventHandler.handleTextSpanEvent(slider, sliderValueText);
-				}
+				sliderValueText = this.createTextInput(slider, editable);
+			}
+
+			// The slider always needs its own input listener, regardless of
+			// whether a companion text element is shown. Without this, moving
+			// the slider in 'hidden' mode would not update the note width.
+			this.plugin.eventHandler.handleSliderInputEvent(slider, sliderValueText);
+
+			// Editable input additionally needs typing / clamp listeners.
+			if (sliderValueText && editable)
+			{
+				this.plugin.eventHandler.handleTextInputEvent(slider, sliderValueText);
 			}
 		}
 		else if (editable)

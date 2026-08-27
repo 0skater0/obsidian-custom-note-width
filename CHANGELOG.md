@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 2.4.1 — 2026-08-27
+
+### Fixed
+- **Slider had no effect when *Value display in status bar* was set to *Hidden*** (#12). The slider's own input listener was bound together with the companion text element and was never registered when no text element was created. Reported by @DuckTapeSpaceship.
+- **Changing a status-bar setting temporarily reset the visible note width to the global default** until the next tab switch or layout change. `updateUI()` now re-applies the per-note width for the active leaf right after the rebuild.
+
 ## 2.4.0 — 2026-08-25
 
 ### Added

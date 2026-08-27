@@ -183,7 +183,8 @@ export default class UIManager
 		this.plugin.statusBarManager.setWrapper(this.plugin.wrapperManager.getWrapper());
 		this.plugin.uiElementCreator.createUIElements();
 
-		// Apply the default width to reflect settings changes immediately
+		// Apply the default width as a baseline (relevant when no markdown view
+		// is active, or when the resolved per-note width falls back to it).
 		const defaultUnit = this.plugin.settingsManager.getDefaultWidthUnit();
 		const unitConfig = this.plugin.settingsManager.getUnitConfig(defaultUnit);
 		const defaultWv = validateWidthValue({
@@ -191,5 +192,11 @@ export default class UIManager
 			unit: defaultUnit,
 		}, unitConfig);
 		this.plugin.noteWidthManager.updateNoteWidthEditorStyle(defaultWv);
+
+		// Re-apply per-note width for the active leaf so the slider and text
+		// element reflect the current note instead of the default. Without this,
+		// changing a status-bar setting resets the visible width until the next
+		// layout-change fires.
+		this.plugin.noteWidthManager.applyWidthForLeaf();
 	}
 }

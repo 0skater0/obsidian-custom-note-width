@@ -177,9 +177,40 @@ export default class EventHandler
 	}
 
 	/**
-	 * Configures the events for the slider element with text input.
+	 * Registers the slider's own input listener: applies the width, persists it,
+	 * and syncs the optional text display. Independent of the value-display mode,
+	 * so the slider works even when the value is hidden.
 	 * @param slider - The slider HTML element.
-	 * @param sliderValueText - The text display associated with the slider.
+	 * @param sliderValueText - Optional companion text element (input or span) to keep in sync.
+	 */
+	public handleSliderInputEvent(slider: HTMLInputElement, sliderValueText: HTMLElement | null): void
+	{
+		slider.addEventListener("input", async () =>
+		{
+			const unit = this.plugin.uiManager.getCurrentUnit();
+			const value = parseInt(slider.value);
+			const wv: WidthValue = { value, unit };
+
+			this.plugin.noteWidthManager.updateNoteWidthEditorStyle(wv);
+			this.saveWidth(wv);
+
+			if (sliderValueText instanceof HTMLInputElement)
+			{
+				sliderValueText.value = value.toString();
+			}
+			else if (sliderValueText instanceof HTMLSpanElement)
+			{
+				sliderValueText.textContent = value.toString();
+			}
+		});
+	}
+
+	/**
+	 * Registers listeners on the editable text input field (clamp on blur/enter,
+	 * live-apply on typing). The slider's own input listener is handled by
+	 * `handleSliderInputEvent`.
+	 * @param slider - The slider HTML element.
+	 * @param sliderValueText - The editable text input associated with the slider.
 	 */
 	public handleTextInputEvent(slider: HTMLInputElement, sliderValueText: HTMLElement): void
 	{
@@ -223,45 +254,6 @@ export default class EventHandler
 
 			// Limit input length
 			(sliderValueText as HTMLInputElement).value = (sliderValueText as HTMLInputElement).value.substring(0, config.maxInputLength);
-		});
-
-		// Slider input event
-		slider.addEventListener("input", async () =>
-		{
-			const unit = this.plugin.uiManager.getCurrentUnit();
-			const value = parseInt(slider.value);
-			const wv: WidthValue = { value, unit };
-
-			this.plugin.noteWidthManager.updateNoteWidthEditorStyle(wv);
-			this.saveWidth(wv);
-
-			if (sliderValueText instanceof HTMLInputElement)
-			{
-				sliderValueText.value = value.toString();
-			} else if (sliderValueText instanceof HTMLSpanElement)
-			{
-				sliderValueText.textContent = value.toString();
-			}
-		});
-	}
-
-	/**
-	 * Configures the events for text span.
-	 * @param slider - The slider HTML element.
-	 * @param sliderValueText - The text display associated with the slider.
-	 */
-	public handleTextSpanEvent(slider: HTMLInputElement, sliderValueText: HTMLElement): void
-	{
-		slider.addEventListener("input", async () =>
-		{
-			const unit = this.plugin.uiManager.getCurrentUnit();
-			const value = parseInt(slider.value);
-			const wv: WidthValue = { value, unit };
-
-			this.plugin.noteWidthManager.updateNoteWidthEditorStyle(wv);
-			this.saveWidth(wv);
-
-			sliderValueText.textContent = value.toString();
 		});
 	}
 
