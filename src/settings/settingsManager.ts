@@ -9,6 +9,7 @@ import {
 	DEFAULT_PILLS_PRESETS,
 	PILLS_PRESET_COUNT,
 	PerNoteMode,
+	StatusBarValueDisplay,
 	WidthValue,
 } from "src/utility/config";
 import { setLocaleOverride } from "src/i18n/i18n";
@@ -24,7 +25,10 @@ export interface CustomNoteWidthSettings
 	sliderWidth: number;
 	yamlKey: string;
 	enableSlider: boolean;
-	enableTextInput: boolean;
+	/** How the width value is displayed next to the slider ('editable' | 'readonly' | 'hidden'). */
+	statusBarValueDisplay: StatusBarValueDisplay;
+	/** Show the unit selector (%/px/ch) in the status bar. */
+	enableStatusBarUnitSelector: boolean;
 	enablePerNoteWidth: boolean;
 	/** Where per-note widths are stored ('frontmatter', 'local', or 'view-only'). */
 	perNoteMode: PerNoteMode;
@@ -54,7 +58,8 @@ export default class SettingsManager
 		sliderWidth: 85,
 		yamlKey: "custom-width",
 		enableSlider: true,
-		enableTextInput: true,
+		statusBarValueDisplay: 'editable',
+		enableStatusBarUnitSelector: true,
 		enablePerNoteWidth: true,
 		perNoteMode: 'frontmatter',
 		localOverrides: {},
@@ -123,13 +128,16 @@ export default class SettingsManager
 		return this.getSetting("yamlKey");
 	}
 
-	/**
-	 * Retrieves the enable text input setting.
-	 * @returns - The enable text input setting value.
-	 */
-	public getEnableTextInput(): boolean
+	/** Retrieves the status-bar value display mode. */
+	public getStatusBarValueDisplay(): StatusBarValueDisplay
 	{
-		return this.getSetting("enableTextInput");
+		return this.getSetting("statusBarValueDisplay");
+	}
+
+	/** Retrieves whether the status bar shows the unit selector. */
+	public getEnableStatusBarUnitSelector(): boolean
+	{
+		return this.getSetting("enableStatusBarUnitSelector");
 	}
 
 	/**
@@ -327,6 +335,46 @@ export default class SettingsManager
 		if (loaded && !('localOverrides' in loaded))
 		{
 			loaded.localOverrides = {};
+		}
+
+		// Migrate the legacy value-visibility flag(s) into the three-way
+		// `statusBarValueDisplay` enum.
+		// - enableStatusBarValue=false             -> 'hidden'
+		// - enableSlider=false + enableTextInput=false -> 'hidden'
+		//   (legacy combo that meant "no status bar" in 2.3.0; preserve invisibility)
+		// - enableTextInput=false                  -> 'readonly'
+		// - otherwise                              -> 'editable' (the default)
+		if (loaded && !('statusBarValueDisplay' in loaded))
+		{
+			if (loaded.enableStatusBarValue === false)
+			{
+				loaded.statusBarValueDisplay = 'hidden';
+			}
+			else if (loaded.enableSlider === false && loaded.enableTextInput === false)
+			{
+				loaded.statusBarValueDisplay = 'hidden';
+			}
+			else if (loaded.enableTextInput === false)
+			{
+				loaded.statusBarValueDisplay = 'readonly';
+			}
+			else
+			{
+				loaded.statusBarValueDisplay = 'editable';
+			}
+		}
+		if (loaded && 'enableTextInput' in loaded)
+		{
+			delete loaded.enableTextInput;
+		}
+		if (loaded && 'enableStatusBarValue' in loaded)
+		{
+			delete loaded.enableStatusBarValue;
+		}
+
+		if (loaded && !('enableStatusBarUnitSelector' in loaded))
+		{
+			loaded.enableStatusBarUnitSelector = true;
 		}
 
 		if (loaded && (!('pillsPresets' in loaded) || !Array.isArray(loaded.pillsPresets) || loaded.pillsPresets.length !== PILLS_PRESET_COUNT))

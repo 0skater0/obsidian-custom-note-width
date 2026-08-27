@@ -138,25 +138,31 @@ export default class UIElementCreator
 	 */
 	private createAndConfigureText(slider: HTMLInputElement | null, widthValue?: string): HTMLElement | null
 	{
+		const display = this.plugin.settingsManager.getStatusBarValueDisplay();
+		if (display === 'hidden') return null;
+
+		const editable = display === 'editable';
 		let sliderValueText: HTMLElement | null = null;
 
-		if (slider && this.plugin.settingsManager.getEnableTextInput())
+		if (slider)
 		{
-			sliderValueText = this.createTextInput(slider, this.plugin.settingsManager.getEnableTextInput());
+			sliderValueText = this.createTextInput(slider, editable);
 			if (sliderValueText)
 			{
-				this.plugin.eventHandler.handleTextInputEvent(slider, sliderValueText);
+				if (editable)
+				{
+					this.plugin.eventHandler.handleTextInputEvent(slider, sliderValueText);
+				}
+				else
+				{
+					this.plugin.eventHandler.handleTextSpanEvent(slider, sliderValueText);
+				}
 			}
-		} else if (slider)
+		}
+		else if (editable)
 		{
-			sliderValueText = this.createTextInput(slider, this.plugin.settingsManager.getEnableTextInput());
-			if (sliderValueText)
-			{
-				this.plugin.eventHandler.handleTextSpanEvent(slider, sliderValueText);
-			}
-		} else if (this.plugin.settingsManager.getEnableTextInput())
-		{
-			sliderValueText = this.createTextInput(null, this.plugin.settingsManager.getEnableTextInput());
+			// No-slider fallback: only the editable input makes sense here.
+			sliderValueText = this.createTextInput(null, true);
 			if (sliderValueText && widthValue)
 			{
 				(sliderValueText as HTMLInputElement).value = widthValue;
@@ -192,7 +198,9 @@ export default class UIElementCreator
 			pills = this.createPillsElement();
 		}
 
-		if (this.plugin.settingsManager.getEnableTextInput() && !slider && !usePills)
+		// No-slider fallback: only makes sense when the value is set to 'editable'.
+		// 'readonly' or 'hidden' with no slider would leave the status bar empty.
+		if (!slider && !usePills && this.plugin.settingsManager.getStatusBarValueDisplay() === 'editable')
 		{
 			const textUnit = this.plugin.settingsManager.getDefaultWidthUnit();
 			const textUnitConfig = this.plugin.settingsManager.getUnitConfig(textUnit);
@@ -203,8 +211,10 @@ export default class UIElementCreator
 			sliderValueText = this.createAndConfigureText(dummySlider);
 		}
 
-		// Create unit selector (hidden in pills mode — presets already carry their own unit)
-		const unitSelector = usePills ? null : this.createUnitSelector();
+		// Unit selector: hidden in pills mode (presets carry their own unit) and
+		// hidden via the status-bar visibility toggle when the user prefers a minimal look.
+		const showUnitSelector = !usePills && this.plugin.settingsManager.getEnableStatusBarUnitSelector();
+		const unitSelector = showUnitSelector ? this.createUnitSelector() : null;
 		if (unitSelector)
 		{
 			this.plugin.eventHandler.handleUnitSelectorEvent(unitSelector);

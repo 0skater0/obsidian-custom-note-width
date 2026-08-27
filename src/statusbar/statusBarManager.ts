@@ -27,7 +27,7 @@ export default class StatusBarManager
 	 */
 	public appendToStatusBar(): void
 	{
-		if (!this.wrapper || (!this.plugin.settingsManager.getEnableSlider() && !this.plugin.settingsManager.getEnableTextInput()))
+		if (!this.wrapper || (!this.plugin.settingsManager.getEnableSlider() && this.plugin.settingsManager.getStatusBarValueDisplay() === 'hidden'))
 		{
 			this.wrapper = null;
 			return;

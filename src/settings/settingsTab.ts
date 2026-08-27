@@ -6,7 +6,7 @@ import ProgressBarModal from "src/modals/progressBarModal";
 import ResetOverridesModal from "src/modals/resetOverridesModal";
 import { PLUGIN_NAME } from "src/utility/constants";
 import { t, setLocaleOverride, SUPPORTED_LOCALES } from "src/i18n/i18n";
-import { WidthUnit, UNIT_CONFIGS, VALID_UNITS, UNIT_ABSOLUTE_BOUNDS, ControlMode, PerNoteMode, PillsPreset } from "src/utility/config";
+import { WidthUnit, UNIT_CONFIGS, VALID_UNITS, UNIT_ABSOLUTE_BOUNDS, ControlMode, PerNoteMode, PillsPreset, StatusBarValueDisplay, VALID_STATUS_BAR_VALUE_DISPLAYS } from "src/utility/config";
 
 /**
  * Represents the settings tab for the CustomNoteWidth plugin.
@@ -248,23 +248,47 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 				);
 		}
 
-		// Allow the change of the note width via text field input
+		// Status-bar value display: editable / readonly / hidden.
+		// Always visible so the no-slider fallback can be configured too.
 		new Setting(containerEl)
-			.setName(t("settings.enable_text_field.name"))
-			.setDesc(t("settings.enable_text_field.desc"))
-			.addToggle((cb: ToggleComponent) =>
+			.setName(t("settings.statusbar_value.name"))
+			.setDesc(t("settings.statusbar_value.desc"))
+			.addDropdown((dropdown) =>
 			{
-				cb.setValue(this.plugin.settingsManager.getEnableTextInput());
-				cb.onChange(async (value: boolean) =>
+				for (const mode of VALID_STATUS_BAR_VALUE_DISPLAYS)
+				{
+					dropdown.addOption(mode, t(`settings.statusbar_value.option.${mode}`));
+				}
+				dropdown.setValue(this.plugin.settingsManager.getStatusBarValueDisplay());
+				dropdown.onChange(async (value) =>
 				{
 					await this.plugin.settingsManager.saveSettings({
 						...this.plugin.settingsManager.settings,
-						enableTextInput: value,
+						statusBarValueDisplay: value as StatusBarValueDisplay,
 					});
 					this.plugin.uiManager.updateUI();
-					this.redrawKeepingScroll();
 				});
 			});
+
+		// Unit selector visibility: only meaningful in slider mode (pills mode has no unit selector).
+		if (this.plugin.settingsManager.getEnableSlider() && this.plugin.settingsManager.getControlMode() === "slider")
+		{
+			new Setting(containerEl)
+				.setName(t("settings.enable_statusbar_unit_selector.name"))
+				.setDesc(t("settings.enable_statusbar_unit_selector.desc"))
+				.addToggle((cb: ToggleComponent) =>
+				{
+					cb.setValue(this.plugin.settingsManager.getEnableStatusBarUnitSelector());
+					cb.onChange(async (value: boolean) =>
+					{
+						await this.plugin.settingsManager.saveSettings({
+							...this.plugin.settingsManager.settings,
+							enableStatusBarUnitSelector: value,
+						});
+						this.plugin.uiManager.updateUI();
+					});
+				});
+		}
 
 		// --- Width Section ---
 

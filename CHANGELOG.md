@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 2.4.0 — 2026-08-25
+
+### Added
+- **Minimal status bar** (#12). Thanks to @DuckTapeSpaceship.
+  - **Value display in status bar** replaces the old *Enable text field* toggle with a three-way choice: *Editable* (input field, previous behaviour), *Read-only* (plain text), or *Hidden* (no value in the status bar).
+  - **Show unit selector in status bar** *(slider mode)* removes the `%`/`px`/`ch` dropdown when off.
+  - Setting both to *Hidden* / off gives a slider-only status bar.
+
+### Changed
+- The old *Enable text field* boolean is replaced by the three-way *Value display in status bar* dropdown. Existing installs migrate automatically: `enableTextInput: true` (default) becomes *Editable*, `enableTextInput: false` becomes *Read-only*. No visible change unless the setting is opened.
+
 ## 2.3.0 — 2026-08-06
 
 ### Added

@@ -72,6 +72,17 @@ export type ControlMode = 'slider' | 'pills';
 export type PerNoteMode = 'frontmatter' | 'local' | 'view-only';
 
 /**
+ * How the width value is displayed next to the slider in the status bar.
+ * - 'editable' shows an input field the user can type into.
+ * - 'readonly' shows the value as text.
+ * - 'hidden' removes the value entirely, for a slider-only status bar.
+ */
+export type StatusBarValueDisplay = 'editable' | 'readonly' | 'hidden';
+
+/** Ordered list of value-display modes (used to populate the settings dropdown). */
+export const VALID_STATUS_BAR_VALUE_DISPLAYS: StatusBarValueDisplay[] = ['editable', 'readonly', 'hidden'];
+
+/**
  * Ordered list of valid per-note storage modes.
  */
 export const VALID_PER_NOTE_MODES: PerNoteMode[] = ['frontmatter', 'local', 'view-only'];

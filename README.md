@@ -71,7 +71,8 @@ Enable under **Settings → Control mode → Pills**. The status bar shows three
 | **Control mode** | *Slider* (draggable) or *Pills* (three preset buttons) | `Slider` |
 | **Slider width** *(Slider mode)* | Horizontal size of the slider in pixels | `85` |
 | **Pill preset 1–3** *(Pills mode)* | Value and unit per preset | `30%` / `50%` / `100%` |
-| **Enable text field** | Numeric input next to the slider | `on` |
+| **Value display in status bar** | *Editable* input, *read-only* text, or *hidden* for a slider-only status bar | `Editable` |
+| **Show unit selector in status bar** *(slider mode)* | Show the unit dropdown (%, px, ch) next to the slider; off keeps the unit fixed | `on` |
 | **Default width unit** | Unit used for the global default width | `%` |
 | **Default width** | Width applied when a note has no per-note width | `50` |
 | **% range** | Min / max for percentage unit | `0 / 100` |
