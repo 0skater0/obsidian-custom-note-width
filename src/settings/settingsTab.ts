@@ -29,6 +29,17 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 	}
 
 	/**
+	 * Placeholder for Obsidian 1.13+ declarative settings search integration.
+	 * Returns an empty list to preserve 2.4.1 behaviour (settings live inside
+	 * `display()`); implementing the declarative API would be a functional
+	 * change and is deliberately deferred to a follow-up.
+	 * @returns Empty array; individual settings are registered by `display()`.
+	 */
+	public getSettingDefinitions(): [] {
+		return [];
+	}
+
+	/**
 	 * Re-renders the settings tab without losing the current scroll position.
 	 * Obsidian rebuilds containerEl on display() and resets scroll to the top.
 	 */
@@ -39,7 +50,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 		this.display();
 		if (scroller && scroll > 0)
 		{
-			requestAnimationFrame(() =>
+			window.requestAnimationFrame(() =>
 			{
 				scroller.scrollTop = scroll;
 			});
@@ -222,7 +233,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 							});
 							text.setValue(this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth.toString());
 							const slider = this.plugin.uiManager.getSliderElement();
-							if (slider) slider.style.width = this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth + "px";
+							if (slider) slider.setCssStyles({ width: `${this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth}px` });
 						}
 						else if (sliderWidth / window.innerWidth > 0.9)
 						{
@@ -233,7 +244,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 							});
 							text.setValue(this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth.toString());
 							const slider = this.plugin.uiManager.getSliderElement();
-							if (slider) slider.style.width = this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth + "px";
+							if (slider) slider.setCssStyles({ width: `${this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth}px` });
 						}
 						else
 						{
@@ -242,7 +253,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 								sliderWidth: sliderWidth
 							});
 							const slider = this.plugin.uiManager.getSliderElement();
-							if (slider) slider.style.width = sliderWidth + "px";
+							if (slider) slider.setCssStyles({ width: `${sliderWidth}px` });
 						}
 					})
 				);
@@ -519,37 +530,50 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 				.setDesc(t("settings.yaml_key.desc"))
 				.addText((text) =>
 				{
-					text.setPlaceholder("custom-width")
+					text.setPlaceholder(this.plugin.settingsManager.DEFAULT_SETTINGS.yamlKey)
 						.setValue(this.plugin.settingsManager.getYAMLKey())
 						.onChange(async (value) =>
 						{
 							// Reset the timer on every change
-							if (updateTimeout) clearTimeout(updateTimeout);
+							if (updateTimeout) window.clearTimeout(updateTimeout);
 
-							updateTimeout = window.setTimeout(async () =>
+							updateTimeout = window.setTimeout(() =>
 							{
-								const oldKey = this.plugin.settingsManager.getYAMLKey();
-
-								if (!value || value.trim() === "")
+								void (async () =>
 								{
-									return;
-								}
+									const oldKey = this.plugin.settingsManager.getYAMLKey();
 
-								if (oldKey !== value)
-								{
-									const progressBarModal = new ProgressBarModal(this.app, t("progress.changing_keys"));
-									progressBarModal.display();
+									if (!value || value.trim() === "")
+									{
+										return;
+									}
 
-									// Call the method to replace old key with new key in all notes
-									await this.yamlProcessor.replaceYamlKeyInAllNotes(oldKey, value, progressBarModal);
+									// Reject prototype-pollution keys: the YAML key is written
+									// into every note's frontmatter object, so `__proto__`
+									// or similar names could tamper with the callback's target.
+									if (["__proto__", "constructor", "prototype"].includes(value.trim()))
+									{
+										new Notice(t("notice.yaml_key_forbidden"), 5000);
+										text.setValue(oldKey);
+										return;
+									}
 
-									progressBarModal.close();
-								}
+									if (oldKey !== value)
+									{
+										const progressBarModal = new ProgressBarModal(this.app, t("progress.changing_keys"));
+										progressBarModal.display();
 
-								await this.plugin.settingsManager.saveSettings({
-									...this.plugin.settingsManager.settings,
-									yamlKey: value
-								});
+										// Call the method to replace old key with new key in all notes
+										await this.yamlProcessor.replaceYamlKeyInAllNotes(oldKey, value, progressBarModal);
+
+										progressBarModal.close();
+									}
+
+									await this.plugin.settingsManager.saveSettings({
+										...this.plugin.settingsManager.settings,
+										yamlKey: value
+									});
+								})();
 							}, 1500);
 						});
 				});
@@ -713,11 +737,7 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 		containerEl.appendChild(this.donationButton.createDonationButton(containerEl));
 
 		// Version info
-		const versionEl = containerEl.createEl("div");
-		versionEl.style.textAlign = "center";
-		versionEl.style.marginTop = "20px";
-		versionEl.style.fontSize = "11px";
-		versionEl.style.color = "var(--text-muted)";
+		const versionEl = containerEl.createDiv({ cls: "cnw-version-info" });
 		versionEl.setText(`${PLUGIN_NAME} v${this.plugin.manifest.version}`);
 	}
 }

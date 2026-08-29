@@ -51,11 +51,10 @@ export default class NoteWidthModal extends Modal
 
 		const config = this.unitConfigs[this.currentUnit];
 
-		const inputEl = inputContainer.createEl("input", { type: "number" });
+		const inputEl = inputContainer.createEl("input", { type: "number", cls: "cnw-nwm-input" });
 		inputEl.min = config.min.toString();
 		inputEl.max = config.max.toString();
 		inputEl.step = config.step.toString();
-		inputEl.style.flex = "1";
 
 		inputEl.oninput = (ev: Event) =>
 		{
@@ -73,10 +72,9 @@ export default class NoteWidthModal extends Modal
 			(ev.target as HTMLInputElement).value = number.toString();
 		};
 
-		// Unit selector
+		// Unit selector — spacing is provided by inputContainer's `gap`.
 		const unitSelect = inputContainer.createEl("select");
 		unitSelect.id = DOM_IDENTIFIERS.NWM_UNIT_SELECTOR;
-		unitSelect.style.marginLeft = "8px";
 
 		for (const unit of VALID_UNITS)
 		{

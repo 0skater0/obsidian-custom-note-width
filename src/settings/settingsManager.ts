@@ -15,6 +15,30 @@ import {
 import { setLocaleOverride } from "src/i18n/i18n";
 
 /**
+ * Legacy keys carried by settings files from older plugin versions. Kept
+ * only so `loadSettings()` can migrate them into the current schema without
+ * losing type safety.
+ */
+interface LegacySettings
+{
+	widthPercentage?: number;
+	defaultNoteWidth?: number;
+	enableSaveWidthIndividually?: boolean;
+	enableYAMLWidth?: boolean;
+	enableChangeDefaultNoteWidth?: boolean;
+	priorityList?: unknown;
+	autoSaveYaml?: boolean;
+	enableStatusBarValue?: boolean;
+	enableTextInput?: boolean;
+}
+
+/**
+ * The shape of what `loadData()` returns before migration completes.
+ * All fields are optional because older files may omit them.
+ */
+type LoadedSettings = Partial<CustomNoteWidthSettings> & LegacySettings;
+
+/**
  * Interface representing the settings structure for CustomNoteWidth.
  */
 export interface CustomNoteWidthSettings
@@ -268,10 +292,25 @@ export default class SettingsManager
 	 */
 	public async loadSettings(): Promise<void>
 	{
-		const loaded = await this.plugin.loadData();
+		const raw = await this.plugin.loadData() as unknown;
+		if (!raw || typeof raw !== 'object')
+		{
+			this.settings = { ...this.DEFAULT_SETTINGS };
+			setLocaleOverride(null);
+			return;
+		}
+		// Strip prototype-pollution vectors: a hand-edited data.json could
+		// carry `__proto__`, `constructor` or `prototype` as own keys. JSON.parse
+		// treats them as normal properties, but `Object.assign` further down
+		// would then modify the target's prototype chain.
+		const rawObj = raw as Record<string, unknown>;
+		delete rawObj['__proto__'];
+		delete rawObj['constructor'];
+		delete rawObj['prototype'];
+		const loaded = rawObj as LoadedSettings;
 
 		// Migrate old settings format (10 settings) to new format (7 settings)
-		if (loaded && ('widthPercentage' in loaded || 'defaultNoteWidth' in loaded || 'enableSaveWidthIndividually' in loaded))
+		if ('widthPercentage' in loaded || 'defaultNoteWidth' in loaded || 'enableSaveWidthIndividually' in loaded)
 		{
 			loaded.defaultWidth = loaded.defaultNoteWidth ?? loaded.widthPercentage ?? 100;
 			loaded.enablePerNoteWidth = (loaded.enableSaveWidthIndividually || loaded.enableYAMLWidth) ?? true;
@@ -287,13 +326,13 @@ export default class SettingsManager
 		}
 
 		// Ensure defaultWidthUnit exists (migration from v1.x without units)
-		if (loaded && !('defaultWidthUnit' in loaded))
+		if (!('defaultWidthUnit' in loaded))
 		{
 			loaded.defaultWidthUnit = '%';
 		}
 
 		// Ensure unitRanges exists (migration from versions without custom ranges)
-		if (loaded && !('unitRanges' in loaded))
+		if (!('unitRanges' in loaded))
 		{
 			loaded.unitRanges = {
 				'%': { min: 0, max: 100 },
@@ -303,7 +342,7 @@ export default class SettingsManager
 		}
 
 		// Ensure code block width settings exist (migration from versions without code block width)
-		if (loaded && !('enableCodeBlockWidth' in loaded))
+		if (!('enableCodeBlockWidth' in loaded))
 		{
 			loaded.enableCodeBlockWidth = false;
 			loaded.codeBlockWidth = 800;
@@ -311,28 +350,28 @@ export default class SettingsManager
 		}
 
 		// Ensure code block width modes exist (migration from versions without mode selection)
-		if (loaded && !('codeBlockWidthModes' in loaded))
+		if (!('codeBlockWidthModes' in loaded))
 		{
 			loaded.codeBlockWidthModes = { reading: true, source: true, livePreview: true };
 		}
 
 		// Ensure control mode and pills presets exist (migration from versions before pills)
-		if (loaded && !('controlMode' in loaded))
+		if (!('controlMode' in loaded))
 		{
 			loaded.controlMode = 'slider';
 		}
 
 		// Migrate autoSaveYaml (old boolean toggle) to the three-way perNoteMode.
-		if (loaded && !('perNoteMode' in loaded))
+		if (!('perNoteMode' in loaded))
 		{
 			loaded.perNoteMode = (loaded.autoSaveYaml === false) ? 'view-only' : 'frontmatter';
 		}
-		if (loaded && 'autoSaveYaml' in loaded)
+		if ('autoSaveYaml' in loaded)
 		{
 			delete loaded.autoSaveYaml;
 		}
 
-		if (loaded && !('localOverrides' in loaded))
+		if (!('localOverrides' in loaded))
 		{
 			loaded.localOverrides = {};
 		}
@@ -344,7 +383,7 @@ export default class SettingsManager
 		//   (legacy combo that meant "no status bar" in 2.3.0; preserve invisibility)
 		// - enableTextInput=false                  -> 'readonly'
 		// - otherwise                              -> 'editable' (the default)
-		if (loaded && !('statusBarValueDisplay' in loaded))
+		if (!('statusBarValueDisplay' in loaded))
 		{
 			if (loaded.enableStatusBarValue === false)
 			{
@@ -363,26 +402,26 @@ export default class SettingsManager
 				loaded.statusBarValueDisplay = 'editable';
 			}
 		}
-		if (loaded && 'enableTextInput' in loaded)
+		if ('enableTextInput' in loaded)
 		{
 			delete loaded.enableTextInput;
 		}
-		if (loaded && 'enableStatusBarValue' in loaded)
+		if ('enableStatusBarValue' in loaded)
 		{
 			delete loaded.enableStatusBarValue;
 		}
 
-		if (loaded && !('enableStatusBarUnitSelector' in loaded))
+		if (!('enableStatusBarUnitSelector' in loaded))
 		{
 			loaded.enableStatusBarUnitSelector = true;
 		}
 
-		if (loaded && (!('pillsPresets' in loaded) || !Array.isArray(loaded.pillsPresets) || loaded.pillsPresets.length !== PILLS_PRESET_COUNT))
+		if (!('pillsPresets' in loaded) || !Array.isArray(loaded.pillsPresets) || loaded.pillsPresets.length !== PILLS_PRESET_COUNT)
 		{
 			loaded.pillsPresets = [...DEFAULT_PILLS_PRESETS];
 		}
 
-		this.settings = Object.assign({}, this.DEFAULT_SETTINGS, loaded);
+		this.settings = Object.assign({}, this.DEFAULT_SETTINGS, loaded) as CustomNoteWidthSettings;
 
 		// Apply locale override from saved language setting
 		setLocaleOverride(this.settings.language === "auto" ? null : this.settings.language);

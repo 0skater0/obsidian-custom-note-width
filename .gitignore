@@ -30,6 +30,12 @@ noteWidthDatabase.json
 
 testing
 test-vault
+# test-vault-master IS tracked (git-managed reference for the e2e test suite);
+# only per-user runtime bits inside it are excluded:
+test-vault-master/.obsidian/workspace.json
+test-vault-master/.obsidian/graph.json
+test-vault-master/.obsidian/plugins/
+test-vault-master/.obsidian/themes/
 condition.txt
 
 #misc
@@ -40,6 +46,20 @@ hotkeys.json
 core-plugins.json
 core-plugins-migration.json
 
+# Override the generic obsidian excludes above for the master-vault configs
+# (these must be tracked so the e2e suite gets a deterministic bootstrap).
+!test-vault-master/.obsidian/app.json
+!test-vault-master/.obsidian/appearance.json
+!test-vault-master/.obsidian/core-plugins.json
+!test-vault-master/.obsidian/community-plugins.json
+
 temp/
 .claude/
 .gitlab-ci.yml
+
+# e2e test suite: ignore per-run outputs and node_modules
+e2e/node_modules/
+e2e/vault/
+e2e/.userdata/
+e2e/screenshots/
+e2e/report/

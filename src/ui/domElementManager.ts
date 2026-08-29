@@ -39,13 +39,18 @@ class DOMElementManager
 
 	/**
 	 * Generates a cache key based on the selector and context.
+	 * Uses a compact, stable identifier for the context: `doc` for the
+	 * root document, otherwise the element's id (if any) plus its tag name.
 	 * @param selector - The CSS selector.
 	 * @param context - The context in which to perform the query.
 	 * @returns The generated cache key.
 	 */
 	public generateCacheKey(selector: string, context: Document | Element = document): string
 	{
-		return `${selector}-${context}`;
+		const contextKey = context === document
+			? "doc"
+			: `${(context as Element).id || ""}#${(context as Element).tagName}`;
+		return `${selector}-${contextKey}`;
 	}
 
 }

@@ -8,24 +8,27 @@ import { getActiveEditorDiv, getActiveMarkdownView, getEditorDivForView, validat
 /**
  * Manages the note width functionalities.
  *
- * Uses a dual strategy to eliminate visual flash on tab switch:
- * 1. A persistent <style> element with per-leaf CSS rules (survives tab switches)
- * 2. Inline styles with !important set synchronously on leaf change
+ * The plugin's per-leaf width flows through two custom CSS variables that
+ * `styles.css` picks up:
+ *   - `--cnw-note-width`         drives `--file-line-width` on the editor
+ *   - `--cnw-code-block-width`   drives code block width (when enabled)
+ *
+ * Both variables are set inline on the leaf's `containerEl` via `setCssProps`,
+ * scoped by a `data-cnw-id` attribute the plugin assigns lazily on first use.
+ * Code block modes (reading / source / live preview) are global settings and
+ * are represented as body-scoped classes so one toggle affects every open leaf.
  *
  * Width is resolved synchronously from Obsidian's metadataCache (YAML-only).
  */
 export default class NoteWidthManager
 {
-	/** Persistent <style> element in <head> for per-leaf width rules. */
-	private readonly styleElement: HTMLStyleElement;
-	/** Maps leaf data-cnw-id to CSS value (e.g., "500px"). */
-	private leafRules: Map<string, string> = new Map();
-	/** Maps leaf data-cnw-id to code block CSS value. */
-	private leafCodeBlockRules: Map<string, string> = new Map();
 	/** Counter for generating unique leaf IDs. */
 	private leafIdCounter: number = 0;
 	/** Session-only widths (per-note mode 'view-only'), dropped when the note is closed. */
 	private viewOnlyWidths: Map<string, WidthValue> = new Map();
+	/** Every containerEl the plugin has tagged with `data-cnw-id`, so cleanup
+	 *  can find them without a global DOM query. */
+	private taggedLeaves: Set<HTMLElement> = new Set();
 
 	/**
 	 * Constructs a new NoteWidthManager instance.
@@ -34,9 +37,7 @@ export default class NoteWidthManager
 	 */
 	constructor(private app: App, private plugin: CustomNoteWidth)
 	{
-		this.styleElement = document.createElement('style');
-		this.styleElement.id = 'custom-note-width-rules';
-		document.head.appendChild(this.styleElement);
+		this.applyCodeBlockModes();
 	}
 
 	/**
@@ -52,59 +53,9 @@ export default class NoteWidthManager
 		{
 			id = `cnw-${this.leafIdCounter++}`;
 			el.setAttribute('data-cnw-id', id);
+			this.taggedLeaves.add(el);
 		}
 		return id;
-	}
-
-	/**
-	 * Rebuilds the <style> element content from all active leaf rules.
-	 */
-	private rebuildStylesheet(): void
-	{
-		const rules: string[] = [];
-		const codeBlockEnabled = this.plugin.settingsManager.getEnableCodeBlockWidth();
-
-		this.leafRules.forEach((cssValue, leafId) =>
-		{
-			const codeBlockCss = codeBlockEnabled ? this.leafCodeBlockRules.get(leafId) : null;
-			let rule = `.workspace-leaf-content[data-cnw-id="${leafId}"] { --file-line-width: ${cssValue} !important;`;
-			if (codeBlockCss)
-			{
-				rule += ` --cnw-code-block-width: ${codeBlockCss};`;
-			}
-			rule += ` }`;
-			rules.push(rule);
-		});
-
-		if (codeBlockEnabled && this.leafCodeBlockRules.size > 0)
-		{
-			const modes = this.plugin.settingsManager.getCodeBlockWidthModes();
-			const cbProps = ` width: var(--cnw-code-block-width) !important;`
-				+ ` max-width: var(--cnw-code-block-width) !important;`
-				+ ` box-sizing: border-box !important;`;
-
-			// Reading mode: target <pre> elements in preview view
-			if (modes.reading)
-			{
-				rules.push(`.workspace-leaf-content[data-cnw-id] .markdown-preview-view pre {${cbProps} }`);
-			}
-
-			// Source / Live Preview mode: target CodeMirror code block lines
-			if (modes.source && modes.livePreview)
-			{
-				rules.push(`.workspace-leaf-content[data-cnw-id] .cm-line.HyperMD-codeblock {${cbProps} }`);
-			}
-			else if (modes.source)
-			{
-				rules.push(`.workspace-leaf-content[data-cnw-id] .markdown-source-view:not(.is-live-preview) .cm-line.HyperMD-codeblock {${cbProps} }`);
-			}
-			else if (modes.livePreview)
-			{
-				rules.push(`.workspace-leaf-content[data-cnw-id] .markdown-source-view.is-live-preview .cm-line.HyperMD-codeblock {${cbProps} }`);
-			}
-		}
-
-		this.styleElement.textContent = rules.join('\n');
 	}
 
 	/**
@@ -156,7 +107,9 @@ export default class NoteWidthManager
 			return defaultWv;
 		}
 
-		const rawValue = frontmatter[yamlKey];
+		// Frontmatter values are untyped by Obsidian; parseWidthValue accepts
+		// `unknown` and validates the shape internally.
+		const rawValue: unknown = frontmatter[yamlKey];
 		const parsed = parseWidthValue(rawValue, defaultUnit);
 
 		if (parsed)
@@ -191,18 +144,11 @@ export default class NoteWidthManager
 		const cssValue = widthValueToCss(wv, editorDiv);
 		if (!cssValue) return;
 
-		const leafId = this.getLeafId(view);
+		this.getLeafId(view);
+		this.setLeafWidthVars(view.containerEl, cssValue, this.computeCodeBlockCss(editorDiv));
 
-		// Strategy 1: Inline style with !important (immediate, highest priority)
-		view.containerEl.style.setProperty('--file-line-width', cssValue, 'important');
-
-		// Strategy 2: Update stylesheet rule (persistent across tab switches)
-		this.leafRules.set(leafId, cssValue);
-
-		// Code block width (global setting, computed per-leaf for % mode)
-		this.applyCodeBlockWidth(view, editorDiv, leafId);
-
-		this.rebuildStylesheet();
+		// Keep body-scoped mode classes in sync (idempotent).
+		this.applyCodeBlockModes();
 
 		// Update slider UI to reflect the note's width and unit
 		this.plugin.uiManager.setSliderAndTextField(wv.value);
@@ -264,66 +210,83 @@ export default class NoteWidthManager
 	}
 
 	/**
-	 * Removes all custom width styles from all views and clears leaf rules.
+	 * Removes all custom width styles from every tagged leaf and drops the
+	 * `data-cnw-id` attribute so the shared stylesheet rules stop matching.
 	 */
 	public removeNoteWidthEditorStyle(): void
 	{
-		this.leafRules.clear();
-		this.leafCodeBlockRules.clear();
-		this.styleElement.textContent = '';
-		this.app.workspace.iterateAllLeaves((leaf) =>
+		for (const el of this.taggedLeaves)
 		{
-			if (leaf.view instanceof MarkdownView)
-			{
-				leaf.view.containerEl.removeAttribute('data-cnw-id');
-				leaf.view.containerEl.style.removeProperty('--file-line-width');
-				leaf.view.containerEl.style.removeProperty('--cnw-code-block-width');
-			}
-		});
+			el.removeAttribute('data-cnw-id');
+			el.setCssProps({
+				"--cnw-note-width": "",
+				"--cnw-code-block-width": "",
+			});
+		}
+		this.taggedLeaves.clear();
 	}
 
 	/**
-	 * Removes the <style> element from the DOM. Call on plugin unload.
+	 * Removes plugin state from the DOM. Call on plugin unload.
 	 */
 	public destroy(): void
 	{
 		this.removeNoteWidthEditorStyle();
 		this.viewOnlyWidths.clear();
-		this.styleElement.remove();
+		document.body.removeClass("cnw-cb-reading");
+		document.body.removeClass("cnw-cb-source");
+		document.body.removeClass("cnw-cb-livepreview");
 	}
 
 	/**
-	 * Applies the code block width CSS variable for a given leaf.
-	 * When enabled, computes and sets --cnw-code-block-width.
-	 * When disabled, removes the variable.
-	 * @param view - The MarkdownView to apply code block width for.
-	 * @param editorDiv - The editor DOM element for width calculations.
-	 * @param leafId - The unique leaf identifier.
+	 * Applies the current code block mode flags to the shared body element.
+	 * Because the flags are global settings, one call is enough to affect
+	 * every open leaf. `toggleClass` is idempotent so the extra calls that
+	 * happen during frequent `applyWidthForLeaf` runs are cheap.
 	 */
-	private applyCodeBlockWidth(view: MarkdownView, editorDiv: Element, leafId: string): void
+	public applyCodeBlockModes(): void
 	{
-		if (!this.plugin.settingsManager.getEnableCodeBlockWidth())
-		{
-			view.containerEl.style.removeProperty('--cnw-code-block-width');
-			this.leafCodeBlockRules.delete(leafId);
-			return;
-		}
+		const enabled = this.plugin.settingsManager.getEnableCodeBlockWidth();
+		const modes = this.plugin.settingsManager.getCodeBlockWidthModes();
+		document.body.toggleClass("cnw-cb-reading", enabled && modes.reading);
+		document.body.toggleClass("cnw-cb-source", enabled && modes.source);
+		document.body.toggleClass("cnw-cb-livepreview", enabled && modes.livePreview);
+	}
 
+	/**
+	 * Computes the CSS value for the code block width, or null when the
+	 * feature is disabled.
+	 * @param editorDiv - The editor DOM element for width calculations.
+	 * @returns The CSS value string, or null when the feature is off.
+	 */
+	private computeCodeBlockCss(editorDiv: Element): string | null
+	{
+		if (!this.plugin.settingsManager.getEnableCodeBlockWidth()) return null;
 		const cbWv: WidthValue = {
 			value: this.plugin.settingsManager.getCodeBlockWidth(),
 			unit: this.plugin.settingsManager.getCodeBlockWidthUnit(),
 		};
-		const cbCssValue = widthValueToCss(cbWv, editorDiv);
-		if (cbCssValue)
-		{
-			view.containerEl.style.setProperty('--cnw-code-block-width', cbCssValue);
-			this.leafCodeBlockRules.set(leafId, cbCssValue);
-		}
+		return widthValueToCss(cbWv, editorDiv);
+	}
+
+	/**
+	 * Writes both custom CSS variables in one call. Passing `null` for the
+	 * code block value unsets it so a leaf does not keep a stale width after
+	 * the feature is turned off.
+	 * @param el - The container element that owns the variables.
+	 * @param noteWidthCss - The value for `--cnw-note-width`.
+	 * @param codeBlockCss - The value for `--cnw-code-block-width`, or null to unset.
+	 */
+	private setLeafWidthVars(el: HTMLElement, noteWidthCss: string, codeBlockCss: string | null): void
+	{
+		el.setCssProps({
+			"--cnw-note-width": noteWidthCss,
+			"--cnw-code-block-width": codeBlockCss ?? "",
+		});
 	}
 
 	/**
 	 * Updates the custom editor style with a new WidthValue on the active view.
-	 * Sets both an inline style and a stylesheet rule for the leaf.
 	 * Used for user-driven width changes (slider, commands).
 	 * @param wv - The WidthValue to be applied.
 	 */
@@ -343,18 +306,12 @@ export default class NoteWidthManager
 			return;
 		}
 
-		const leafId = this.getLeafId(view);
+		this.getLeafId(view);
+		this.setLeafWidthVars(view.containerEl, cssValue, this.computeCodeBlockCss(editorDiv));
 
-		// Set inline style with !important for immediate effect
-		view.containerEl.style.setProperty('--file-line-width', cssValue, 'important');
-
-		// Update stylesheet rule for persistence across tab switches
-		this.leafRules.set(leafId, cssValue);
-
-		// Code block width
-		this.applyCodeBlockWidth(view, editorDiv, leafId);
-
-		this.rebuildStylesheet();
+		// A settings change may have flipped a mode flag; keep the body classes
+		// in sync so the freshly applied width is visible in the right editor mode.
+		this.applyCodeBlockModes();
 	}
 
 	/**

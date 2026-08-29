@@ -35,7 +35,7 @@ export default class StatusBarManager
 
 		this.statusBarItemEl = this.plugin.addStatusBarItem();
 		this.statusBarItemEl.appendChild(this.wrapper);
-		this.statusBarItemEl.style.paddingLeft = "0px";
+		this.statusBarItemEl.addClass("cnw-statusbar-item");
 		const statusBar = domElementManager.querySelector(classSelector(DOM_IDENTIFIERS.STATUSBAR));
 		statusBar?.insertBefore(this.statusBarItemEl, statusBar.firstChild);
 	}
@@ -65,10 +65,7 @@ export default class StatusBarManager
 	 */
 	public showStatusBarItem(): void
 	{
-		if (!this.statusBarItemEl)
-			return;
-
-		this.statusBarItemEl.style.display = "flex";
+		this.statusBarItemEl?.removeClass("cnw-hidden");
 	}
 
 	/**
@@ -76,9 +73,6 @@ export default class StatusBarManager
 	 */
 	public hideStatusBarItem(): void
 	{
-		if (!this.statusBarItemEl)
-			return;
-
-		this.statusBarItemEl.style.display = "none";
+		this.statusBarItemEl?.addClass("cnw-hidden");
 	}
 }

@@ -59,11 +59,8 @@ export default class ResetOverridesModal extends Modal
 	/** Search input; live-filters the list. */
 	private renderSearch(container: HTMLElement): void
 	{
-		const input = container.createEl("input", { type: "text" });
+		const input = container.createEl("input", { type: "text", cls: "cnw-reset-search" });
 		input.placeholder = t("modal.reset_overrides.search_placeholder");
-		input.style.width = "100%";
-		input.style.marginBottom = "8px";
-		input.style.padding = "6px 8px";
 		input.oninput = () =>
 		{
 			this.filter = input.value.trim().toLowerCase();
@@ -75,13 +72,6 @@ export default class ResetOverridesModal extends Modal
 	private renderSelectAll(container: HTMLElement): void
 	{
 		const row = container.createDiv({ cls: "cnw-reset-select-all" });
-		row.style.display = "flex";
-		row.style.alignItems = "center";
-		row.style.gap = "8px";
-		row.style.padding = "6px 4px";
-		row.style.borderBottom = "1px solid var(--background-modifier-border)";
-		row.style.marginBottom = "6px";
-		row.style.fontWeight = "500";
 
 		this.selectAllBox = row.createEl("input", { type: "checkbox" });
 		this.selectAllBox.checked = true;
@@ -97,33 +87,19 @@ export default class ResetOverridesModal extends Modal
 			this.refreshRemoveButton();
 		};
 
-		this.selectAllLabel = row.createEl("label");
+		this.selectAllLabel = row.createEl("label", { cls: "cnw-reset-select-all-label" });
 		this.selectAllLabel.htmlFor = "cnw-select-all";
-		this.selectAllLabel.style.cursor = "pointer";
-		this.selectAllLabel.style.userSelect = "none";
 	}
 
 	/** Scrollable list; one row per override. */
 	private renderList(container: HTMLElement, paths: string[]): void
 	{
 		const listEl = container.createDiv({ cls: "cnw-reset-list" });
-		// Fixed height so the modal keeps its size while the search filter shrinks the list.
-		listEl.style.height = "320px";
-		listEl.style.overflowY = "auto";
-		listEl.style.margin = "0 0 8px";
-		listEl.style.paddingRight = "6px";
-		listEl.style.border = "1px solid var(--background-modifier-border)";
-		listEl.style.borderRadius = "4px";
 
 		for (const path of paths)
 		{
 			const wv = this.overrides[path];
 			const row = listEl.createDiv({ cls: "cnw-reset-row" });
-			row.style.display = "flex";
-			row.style.alignItems = "center";
-			row.style.gap = "8px";
-			row.style.padding = "4px 8px";
-			row.style.borderBottom = "1px solid var(--background-modifier-border-hover)";
 
 			const checkbox = row.createEl("input", { type: "checkbox" });
 			checkbox.checked = true;
@@ -134,41 +110,23 @@ export default class ResetOverridesModal extends Modal
 				this.refreshRemoveButton();
 			};
 
-			const label = row.createEl("label");
+			const label = row.createEl("label", { cls: "cnw-reset-row-label" });
 			label.htmlFor = checkbox.id;
-			label.style.cursor = "pointer";
-			label.style.userSelect = "none";
-			label.style.flex = "1";
-			label.style.overflow = "hidden";
-			label.style.textOverflow = "ellipsis";
-			label.style.whiteSpace = "nowrap";
 			label.setText(path);
 			label.title = path;
 
-			const value = row.createEl("span", { text: `${wv.value}${wv.unit}` });
-			value.style.color = "var(--text-muted)";
-			value.style.fontSize = "var(--font-ui-smaller)";
-			value.style.fontVariantNumeric = "tabular-nums";
-			value.style.minWidth = "48px";
-			value.style.textAlign = "right";
+			row.createSpan({ text: `${wv.value}${wv.unit}`, cls: "cnw-reset-value" });
 
 			this.rows.push({ path, container: row, checkbox });
 		}
 
-		this.emptyEl = listEl.createDiv({ text: t("modal.reset_overrides.empty_filter") });
-		this.emptyEl.style.padding = "12px";
-		this.emptyEl.style.textAlign = "center";
-		this.emptyEl.style.color = "var(--text-muted)";
-		this.emptyEl.style.display = "none";
+		this.emptyEl = listEl.createDiv({ text: t("modal.reset_overrides.empty_filter"), cls: "cnw-reset-empty" });
 	}
 
 	/** Cancel / Remove buttons. */
 	private renderButtons(container: HTMLElement): void
 	{
-		const buttonRow = container.createDiv();
-		buttonRow.style.display = "flex";
-		buttonRow.style.justifyContent = "flex-end";
-		buttonRow.style.gap = "8px";
+		const buttonRow = container.createDiv({ cls: "cnw-reset-button-row" });
 
 		const cancelBtn = buttonRow.createEl("button", { text: t("button.cancel") });
 		cancelBtn.onclick = () => this.close();
@@ -189,12 +147,12 @@ export default class ResetOverridesModal extends Modal
 		for (const r of this.rows)
 		{
 			const match = this.filter === "" || r.path.toLowerCase().includes(this.filter);
-			r.container.style.display = match ? "" : "none";
+			r.container.toggleClass("cnw-hidden", !match);
 			if (match) visible++;
 		}
 		if (this.emptyEl)
 		{
-			this.emptyEl.style.display = visible === 0 ? "" : "none";
+			this.emptyEl.toggleClass("cnw-visible", visible === 0);
 		}
 		this.syncSelectAll();
 		this.refreshRemoveButton();
@@ -203,7 +161,7 @@ export default class ResetOverridesModal extends Modal
 	/** All rows currently passing the filter. */
 	private visibleRows(): Row[]
 	{
-		return this.rows.filter((r) => r.container.style.display !== "none");
+		return this.rows.filter((r) => !r.container.hasClass("cnw-hidden"));
 	}
 
 	/**

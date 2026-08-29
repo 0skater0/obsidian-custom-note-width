@@ -89,7 +89,7 @@ export function getCharWidthSync(): number | null
 	}
 	const editorFontFamily = window.getComputedStyle(editorDiv).fontFamily;
 	const editorFontSize = window.getComputedStyle(editorDiv).fontSize;
-	const canvas = document.createElement("canvas");
+	const canvas = createEl("canvas");
 	const context = canvas.getContext("2d");
 	if (!context)
 	{

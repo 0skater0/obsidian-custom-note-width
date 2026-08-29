@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 3.0.0 — 2026-08-28
+
+Internal refactor to satisfy the Obsidian Community Directory guidelines (#13). No user-visible feature changes: every setting, command and status-bar behaviour of 2.4.1 works the same way in 3.0.0. Bumped to a major version because the code around the note-width application path was rewritten end-to-end.
+
+### Changed
+- **Per-leaf width is now driven by CSS variables and shared stylesheet rules.** The plugin no longer creates or maintains a `<style>` element in `<head>`. Each tagged leaf receives `--cnw-note-width` inline via `setCssProps`; `styles.css` feeds that value into Obsidian's `--file-line-width` with a scoped `[data-cnw-id]` selector. The bridge rule keeps `!important` (this is a deliberate exception to the community guideline) because Obsidian's own defaults for `--file-line-width` sit on more specific selectors like `.markdown-source-view.mod-cm6.is-readable-line-width`, and themes may also mark the property `!important`. Without the marker the plugin would silently lose against those rules.
+- **Code block width modes are now body-scoped classes.** `enableCodeBlockWidth` plus the three mode toggles (reading / source / live preview) map to `cnw-cb-reading`, `cnw-cb-source`, `cnw-cb-livepreview` on `document.body`. One toggle affects every open leaf, same as before, but without regenerating a stylesheet on every change.
+- **All inline styles moved to CSS classes or `setCssStyles`.** Modals, the status-bar wrapper, the donation button, the version footer, the reset-overrides list and every other UI surface now style themselves through `styles.css` classes prefixed with `cnw-`. Dynamic values (slider width, progress bar) go through `setCssStyles` / `setCssProps`.
+- **DOM creation goes through Obsidian's helpers.** `document.createElement` is replaced everywhere with `createEl` / `createDiv` / `createSpan` (or the parent-scoped `parent.createEl(...)` / `parent.createDiv(...)`) so the plugin works correctly in popout windows.
+- **Window-scoped timers.** `setTimeout`, `clearTimeout` and `requestAnimationFrame` calls now go through `window.` so they behave correctly in popout windows.
+- **Cross-window-safe DOM type checks.** The `instanceof HTMLInputElement` / `instanceof HTMLSpanElement` guards on the status-bar text element go through Obsidian's `.instanceOf()` extension, so the checks stay correct across popout windows.
+- **`console.log` startup / shutdown messages are now `console.debug`.** They are still visible in the developer console at the *Verbose* log level; other levels stay quiet, matching Obsidian's own logging expectations.
+- **`onunload` is no longer marked `async`.** All cleanup is synchronous. `registerEvent` also takes care of removing the workspace and vault listeners on unload, so the manual deregistration path was removed.
+- **Legacy settings migration is now type-safe.** The migration logic in `SettingsManager.loadSettings` reads its input through a dedicated `LoadedSettings` type instead of `any`, so both current and pre-2.0 saved data flow through the same guarded path. Dangerous keys (`__proto__`, `constructor`, `prototype`) are stripped from the loaded object before it is merged with the defaults, so a hand-edited `data.json` can no longer poison the settings prototype chain.
+- **YAML frontmatter key input is now guarded.** The settings tab rejects `__proto__`, `constructor` and `prototype` as YAML keys so a batch frontmatter write cannot tamper with the callback's own object.
+- **`layout-change` re-applies the width via `requestAnimationFrame`.** The event fires on split, sidebar toggle and other layout mutations that remount leaf containers; matching the existing `active-leaf-change` path keeps the plugin's `--cnw-note-width` the last writer to the container in every layout scenario.
+- **Bundler no longer depends on the `builtin-modules` npm package.** `esbuild.config.mjs` uses Node's built-in `module.builtinModules` list instead.
+- **Release workflow installs from the lockfile.** `npm ci` replaces `npm install` so the build the attestation is signing is the exact one the lockfile pins.
+- **`manifest.json.description` typo fixed** (`Let's you` → `Lets you`).
+- **Dev-only dependencies pruned.** `@eslint/js` and `typescript-eslint` are no longer direct dev-dependencies; both are still pulled in transitively by `eslint-plugin-obsidianmd`.
+
+### Added
+- **`getSettingDefinitions()` on the settings tab.** Placeholder implementation returning an empty list so the plugin no longer trips Obsidian 1.13's declarative-settings scanner. Full search integration is deferred to a follow-up.
+- **GitHub artifact attestations for release assets.** The release workflow now runs `actions/attest-build-provenance@v2` against `main.js`, `manifest.json` and `styles.css`, so the community directory can verify the published binaries against the workflow that produced them.
+
+### Removed
+- **Release ZIP asset.** The three release files (`main.js`, `manifest.json`, `styles.css`) are still uploaded individually; the extra `custom-note-width.zip` upload was dropped to keep the release contents aligned with Obsidian's expected asset set.
+- **`!important` from `styles.css`.** The remaining `transition: max-width 0s !important` rule was rewritten with a selector chain scoped by `data-cnw-id`, which is specific enough on its own.
+
+### Tests
+- **End-to-end test suite** under `e2e/`. Playwright drives an isolated Obsidian instance against a git-tracked reference vault (`test-vault-master/`), reproducibly, in English + Dark Mode. 112 tests across 57 groups cover every public code path plus a dedicated regression test for every historical bug in the CHANGELOG. Full run ~75 seconds. Details in `e2e/README.md`.
+
 ## 2.4.1 — 2026-08-27
 
 ### Fixed

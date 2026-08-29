@@ -78,21 +78,21 @@ export default class CustomNoteWidth extends Plugin
 		this.noteWidthManager.updateNoteWidthEditorStyle(defaultWv);
 
 		// Plugin loaded
-		console.log(getLoadedMessage(this.manifest.version));
+		console.debug(getLoadedMessage(this.manifest.version));
 	}
 
 	/**
 	 * This function is called when the plugin is unloaded.
 	 * It handles the cleanup of various components.
-	 * @returns {Promise<void>} A promise that resolves when the unloading process is completed.
+	 * Event handlers registered via `plugin.registerEvent()` are removed
+	 * automatically by Obsidian; no manual deregistration needed.
 	 */
-	async onunload(): Promise<void>
+	onunload(): void
 	{
 		this.wrapperManager.removeWrapper();
 		this.noteWidthManager.destroy();
-		this.eventHandler.deregisterEventHandlers();
 
 		// Plugin unloaded
-		console.log(getUnloadedMessage(this.manifest.version));
+		console.debug(getUnloadedMessage(this.manifest.version));
 	}
 }

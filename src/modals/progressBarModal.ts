@@ -31,9 +31,7 @@ export default class ProgressBarModal extends Modal
 	 */
 	private addCancelButton(): void
 	{
-		const cancelButton = this.contentEl.createEl("button", { text: t("button.cancel") });
-		cancelButton.style.marginTop = "20px";
-		cancelButton.style.float = "right";
+		const cancelButton = this.contentEl.createEl("button", { text: t("button.cancel"), cls: "cnw-progress-cancel" });
 		cancelButton.onclick = () =>
 		{
 			this.isCancelled = true;
@@ -46,10 +44,10 @@ export default class ProgressBarModal extends Modal
 	 */
 	private updateProgress(): void
 	{
-		const innerDiv = this.contentEl.querySelector(classSelector(DOM_IDENTIFIERS.PROGRESS_INNER)) as HTMLElement;
+		const innerDiv = this.contentEl.querySelector<HTMLElement>(classSelector(DOM_IDENTIFIERS.PROGRESS_INNER));
 		if (innerDiv)
 		{
-			innerDiv.style.width = `${this.progress}%`;
+			innerDiv.setCssStyles({ width: `${this.progress}%` });
 		}
 	}
 

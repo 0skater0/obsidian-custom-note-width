@@ -31,7 +31,7 @@ export default class YamlFrontMatterProcessor
 				break;
 			}
 
-			await this.app.fileManager.processFrontMatter(file, (frontMatter) =>
+			await this.app.fileManager.processFrontMatter(file, (frontMatter: Record<string, unknown>) =>
 			{
 				if (oldKey in frontMatter)
 				{
@@ -66,7 +66,7 @@ export default class YamlFrontMatterProcessor
 				break;
 			}
 
-			await this.app.fileManager.processFrontMatter(file, (frontMatter) =>
+			await this.app.fileManager.processFrontMatter(file, (frontMatter: Record<string, unknown>) =>
 			{
 				if (yamlKey in frontMatter)
 				{
@@ -80,16 +80,18 @@ export default class YamlFrontMatterProcessor
 
 	/**
 	 * Sets a value for a given YAML key in the active note's front matter.
+	 * `value` is `unknown` because YAML frontmatter accepts any serialisable
+	 * shape (number, string, boolean, list, map); callers are responsible for
+	 * passing a value Obsidian can serialise.
 	 * @param key - The key to set its value.
 	 * @param value - The value to set for the specified key.
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public async setYamlValue(key: string, value: any): Promise<void>
+	public async setYamlValue(key: string, value: unknown): Promise<void>
 	{
 		const activeView = getActiveMarkdownView(this.app);
 		if (!activeView || !activeView.file) return;
 
-		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter) =>
+		await this.app.fileManager.processFrontMatter(activeView.file, (frontMatter: Record<string, unknown>) =>
 		{
 			frontMatter[key] = value;
 		});

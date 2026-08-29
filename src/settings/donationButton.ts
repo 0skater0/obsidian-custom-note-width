@@ -25,18 +25,17 @@ export default class DonationButton
 	private createDonateButtonElement(link: string, img: HTMLElement): HTMLElement
 	{
 		// Create an anchor element for the donation link
-		const a = document.createElement("a");
+		const a = createEl("a");
 		a.setAttribute("href", link);
 
 		// Set image styles to adjust height and width
-		img.style.height = "auto";
-		img.style.width = "100%";
+		img.addClass("cnw-donation-image");
 
 		// Append the image element to the anchor element
 		a.appendChild(img);
 
 		// Create a flex container (div) and center the anchor element inside it
-		const div = document.createElement("div");
+		const div = createDiv();
 		div.appendChild(a);
 
 		return div;
@@ -49,7 +48,7 @@ export default class DonationButton
 	 */
 	public createDonationButton(containerEl: HTMLElement): HTMLElement
 	{
-		const div = containerEl.createEl("div");
+		const div = containerEl.createDiv();
 		div.id = DOM_IDENTIFIERS.DONATION_BUTTON;
 
 		div.appendChild(this.createDonateButtonElement(DONATION_LINK, this.parser.parseFromString(KOFI_SVG, "text/xml").documentElement));

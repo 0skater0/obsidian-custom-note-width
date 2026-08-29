@@ -21,7 +21,7 @@ export default class WrapperManager
 	 */
 	public createWrapper(): void
 	{
-		this.wrapper = document.createElement("div");
+		this.wrapper = createDiv();
 		this.wrapper.id = DOM_IDENTIFIERS.WRAPPER;
 	}
 

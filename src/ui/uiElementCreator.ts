@@ -23,7 +23,7 @@ export default class UIElementCreator
 		// Return dummy input element if slider is not enabled
 		if (!this.plugin.settingsManager.getEnableSlider())
 		{
-			const slider = document.createElement("input");
+			const slider = createEl("input");
 			slider.id = DOM_IDENTIFIERS.DUMMY;
 			return slider;
 		}
@@ -32,14 +32,14 @@ export default class UIElementCreator
 		const unitConfig = this.plugin.settingsManager.getUnitConfig(unit);
 		const defaultWidth = this.plugin.settingsManager.getDefaultWidth();
 
-		const slider = document.createElement("input");
+		const slider = createEl("input");
 		slider.id = DOM_IDENTIFIERS.SLIDER;
 		slider.type = "range";
 		slider.min = unitConfig.min.toString();
 		slider.max = unitConfig.max.toString();
 		slider.step = unitConfig.step.toString();
 		slider.value = defaultWidth.toString();
-		slider.style.width = this.plugin.settingsManager.getSliderWidth() + "px";
+		slider.setCssStyles({ width: `${this.plugin.settingsManager.getSliderWidth()}px` });
 
 		return slider;
 	}
@@ -50,13 +50,13 @@ export default class UIElementCreator
 	 */
 	private createPillsElement(): HTMLElement
 	{
-		const container = document.createElement("div");
+		const container = createDiv();
 		container.id = DOM_IDENTIFIERS.PILLS_CONTAINER;
 
 		const presets = this.plugin.settingsManager.getPillsPresets();
 		presets.forEach((preset: PillsPreset, index: number) =>
 		{
-			const pill = document.createElement("button");
+			const pill = createEl("button");
 			pill.id = DOM_IDENTIFIERS.PILL_PREFIX + index;
 			pill.type = "button";
 			pill.classList.add("custom-note-width-pill");
@@ -75,12 +75,12 @@ export default class UIElementCreator
 	 */
 	private createUnitSelector(): HTMLSelectElement
 	{
-		const select = document.createElement("select");
+		const select = createEl("select");
 		select.id = DOM_IDENTIFIERS.UNIT_SELECTOR;
 
 		for (const unit of VALID_UNITS)
 		{
-			const option = document.createElement("option");
+			const option = createEl("option");
 			option.value = unit;
 			option.textContent = unit;
 			select.appendChild(option);
@@ -108,20 +108,14 @@ export default class UIElementCreator
 				const unit = this.plugin.settingsManager.getDefaultWidthUnit();
 				const unitConfig = this.plugin.settingsManager.getUnitConfig(unit);
 
-				text = document.createElement("input");
-				(text as HTMLInputElement).type = "number";
+				text = createEl("input", { type: "number", cls: "cnw-slider-text-input" });
 				(text as HTMLInputElement).value = slider.value;
 				(text as HTMLInputElement).min = unitConfig.min.toString();
 				(text as HTMLInputElement).max = unitConfig.max.toString();
-				text.style.height = "160%";
-				text.style.width = "50px";
-				text.style.fontSize = "108%";
 			} else
 			{
-				text = document.createElement("span");
+				text = createSpan({ cls: "cnw-slider-text-span" });
 				text.textContent = slider.value;
-				text.style.fontSize = "102.5%";
-				text.style.marginBottom = "-0.5px";
 			}
 
 			text.id = DOM_IDENTIFIERS.SLIDER_VALUE;
@@ -206,7 +200,7 @@ export default class UIElementCreator
 		{
 			const textUnit = this.plugin.settingsManager.getDefaultWidthUnit();
 			const textUnitConfig = this.plugin.settingsManager.getUnitConfig(textUnit);
-			const dummySlider = document.createElement("input");
+			const dummySlider = createEl("input");
 			dummySlider.value = this.plugin.settingsManager.getDefaultWidth().toString();
 			dummySlider.min = textUnitConfig.min.toString();
 			dummySlider.max = textUnitConfig.max.toString();

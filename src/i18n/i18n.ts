@@ -66,6 +66,7 @@ const en: Translations = {
 	"notice.slider_too_large": "Slider too large!",
 	"notice.local_overrides_cleared": "Removed {{count}} local width override(s).",
 	"notice.local_overrides_empty": "No local width overrides to clear.",
+	"notice.yaml_key_forbidden": "This YAML key is not allowed.",
 	"modal.reset_overrides.title": "Reset local width overrides",
 	"modal.reset_overrides.desc": "{{count}} note(s) have a locally stored width. Pick which ones to remove.",
 	"modal.reset_overrides.search_placeholder": "Filter by path…",
@@ -165,6 +166,7 @@ const de: Translations = {
 	"notice.slider_too_large": "Schieberegler zu gro\u00DF!",
 	"notice.local_overrides_cleared": "{{count}} lokale Breite(n) entfernt.",
 	"notice.local_overrides_empty": "Keine lokalen Breiten zum Zur\u00FCcksetzen.",
+	"notice.yaml_key_forbidden": "Dieser YAML-Schl\u00FCssel ist nicht erlaubt.",
 	"modal.reset_overrides.title": "Lokale Notizbreiten zur\u00FCcksetzen",
 	"modal.reset_overrides.desc": "{{count}} Notiz(en) haben eine lokal gespeicherte Breite. W\u00E4hle aus, welche entfernt werden sollen.",
 	"modal.reset_overrides.search_placeholder": "Nach Pfad filtern\u2026",
@@ -264,6 +266,7 @@ const ru: Translations = {
 	"notice.slider_too_large": "Значение ползунка слишком большое!",
 	"notice.local_overrides_cleared": "Удалено локальных ширин: {{count}}.",
 	"notice.local_overrides_empty": "Нет локальных ширин для сброса.",
+	"notice.yaml_key_forbidden": "Этот YAML-ключ запрещён.",
 	"modal.reset_overrides.title": "Сброс локальных ширин заметок",
 	"modal.reset_overrides.desc": "У {{count}} заметок(и) есть локально сохранённая ширина. Выберите, какие удалить.",
 	"modal.reset_overrides.search_placeholder": "Фильтр по пути…",
@@ -386,10 +389,24 @@ function resolveLocale(locale: string): string
  * @param params - Optional parameters to interpolate into the string.
  * @returns The translated string.
  */
+/**
+ * Structural type for the moment.js locale accessor Obsidian exposes on
+ * `window.moment`. Kept local so we do not depend on `@types/moment`.
+ */
+interface MomentLike
+{
+	locale(): string;
+}
+
+/** Reads `window.moment` without widening the surrounding scope to `any`. */
+function getWindowMoment(): MomentLike | undefined
+{
+	return (window as unknown as { moment?: MomentLike }).moment;
+}
+
 export function t(key: string, params?: Record<string, string | number>): string
 {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const rawLocale = localeOverride ?? (window as any).moment?.locale?.() ?? "en";
+	const rawLocale = localeOverride ?? getWindowMoment()?.locale() ?? "en";
 	const locale = resolveLocale(rawLocale);
 	const dict = translations[locale];
 	let text = dict[key] ?? en[key] ?? key;

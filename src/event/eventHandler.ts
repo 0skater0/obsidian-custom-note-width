@@ -23,6 +23,8 @@ export default class EventHandler
 
 	/**
 	 * Register event handlers related to the plugin.
+	 * Handlers registered via `plugin.registerEvent()` are automatically
+	 * removed by Obsidian on plugin unload; no manual deregistration needed.
 	 */
 	public registerEventHandlers(): void
 	{
@@ -31,23 +33,6 @@ export default class EventHandler
 		this.plugin.registerEvent(this.app.workspace.on("layout-change", this.handleLayoutChange));
 		this.plugin.registerEvent(this.app.vault.on("rename", this.handleFileRename));
 		this.plugin.registerEvent(this.app.vault.on("delete", this.handleFileDelete));
-	}
-
-	/**
-	 * Deregister event handlers related to the plugin.
-	 */
-	public deregisterEventHandlers(): void
-	{
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		this.app.workspace.off("resize", this.handleResize as any);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		this.app.workspace.off("active-leaf-change", this.handleActiveLeafChange as any);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		this.app.workspace.off("layout-change", this.handleLayoutChange as any);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		this.app.vault.off("rename", this.handleFileRename as any);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		this.app.vault.off("delete", this.handleFileDelete as any);
 	}
 
 	/**
@@ -64,7 +49,7 @@ export default class EventHandler
 				...this.plugin.settingsManager.settings,
 				sliderWidth: this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth
 			});
-			if (slider) slider.style.width = this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth + 'px';
+			if (slider) slider.setCssStyles({ width: `${this.plugin.settingsManager.DEFAULT_SETTINGS.sliderWidth}px` });
 		}
 
 		// Re-apply width for the current leaf using synchronous resolution.
@@ -77,7 +62,7 @@ export default class EventHandler
 	private handleActiveLeafChange = async (leaf: WorkspaceLeaf | null): Promise<void> =>
 	{
 		// Cancel any pending YAML write from slider interaction
-		if (this.updateTimeout) clearTimeout(this.updateTimeout);
+		if (this.updateTimeout) window.clearTimeout(this.updateTimeout);
 
 		// Enable/Disable our statusbar elements(wrapper)
 		if (isActiveLeafMarkdown(this.app))
@@ -95,7 +80,7 @@ export default class EventHandler
 
 		// Re-apply via rAF: Obsidian may override --file-line-width after this handler
 		// returns. rAF runs after all synchronous code but before the browser paints.
-		requestAnimationFrame(() =>
+		window.requestAnimationFrame(() =>
 		{
 			this.plugin.noteWidthManager.applyWidthForLeaf(leaf);
 		});
@@ -111,6 +96,14 @@ export default class EventHandler
 		this.plugin.noteWidthManager.cleanupViewOnlyWidths();
 		if (this.layoutChangeSuppressed) return;
 		this.plugin.noteWidthManager.applyWidthForLeaf();
+		// Re-apply via rAF: split panes and sidebar toggles remount leaf
+		// containers, and Obsidian may set --file-line-width on the fresh
+		// container after this handler returns. rAF runs after all synchronous
+		// code but before the browser paints, so we win the last-write race.
+		window.requestAnimationFrame(() =>
+		{
+			this.plugin.noteWidthManager.applyWidthForLeaf();
+		});
 	};
 
 	/** Moves per-note storage to the new path so a later note at the old path cannot inherit it. */
@@ -154,15 +147,17 @@ export default class EventHandler
 			}
 
 			// 'frontmatter' mode: debounced YAML write.
-			if (this.updateTimeout) clearTimeout(this.updateTimeout);
-			this.updateTimeout = window.setTimeout(async () =>
+			if (this.updateTimeout) window.clearTimeout(this.updateTimeout);
+			this.updateTimeout = window.setTimeout(() =>
 			{
 				// Suppress layout-change during YAML write to prevent stale metadataCache reads
 				this.layoutChangeSuppressed = true;
 				const yamlKey = this.plugin.settingsManager.getYAMLKey();
 				const yamlValue = formatWidthForYaml(wv);
-				await this.plugin.yamlFrontMatterProcessor.setYamlValue(yamlKey, yamlValue);
-				window.setTimeout(() => { this.layoutChangeSuppressed = false; }, 500);
+				void this.plugin.yamlFrontMatterProcessor.setYamlValue(yamlKey, yamlValue).then(() =>
+				{
+					window.setTimeout(() => { this.layoutChangeSuppressed = false; }, 500);
+				});
 			}, 250);
 		}
 		else
@@ -185,7 +180,7 @@ export default class EventHandler
 	 */
 	public handleSliderInputEvent(slider: HTMLInputElement, sliderValueText: HTMLElement | null): void
 	{
-		slider.addEventListener("input", async () =>
+		slider.addEventListener("input", () =>
 		{
 			const unit = this.plugin.uiManager.getCurrentUnit();
 			const value = parseInt(slider.value);
@@ -194,11 +189,11 @@ export default class EventHandler
 			this.plugin.noteWidthManager.updateNoteWidthEditorStyle(wv);
 			this.saveWidth(wv);
 
-			if (sliderValueText instanceof HTMLInputElement)
+			if (sliderValueText?.instanceOf(HTMLInputElement))
 			{
 				sliderValueText.value = value.toString();
 			}
-			else if (sliderValueText instanceof HTMLSpanElement)
+			else if (sliderValueText?.instanceOf(HTMLSpanElement))
 			{
 				sliderValueText.textContent = value.toString();
 			}
@@ -231,7 +226,7 @@ export default class EventHandler
 		});
 
 		// Live input: clamp and apply
-		sliderValueText.addEventListener("input", async () =>
+		sliderValueText.addEventListener("input", () =>
 		{
 			const unit = this.plugin.uiManager.getCurrentUnit();
 			const config = this.plugin.settingsManager.getUnitConfig(unit);
