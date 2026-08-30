@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 3.1.0 — 2026-09-28
+
+Makes the note width more robust against themes and other plugins, and adds a diagnostics report so a bug like #14 can be investigated with facts instead of guesses. Also folds in the unreleased 3.0.1 lint fixes.
+
+### Added
+- **Diagnostics report.** A new *Create diagnostics report* command (also a button under *Settings → Custom Note Width → Diagnostics*) writes an anonymised `diagnostics.json` into the plugin folder, copies it to the clipboard, and reveals it in your file manager. It records, as plain fields, the environment (versions, platform, viewport), the relevant Obsidian editor settings (including `readableLineLength`), the active theme and snippets, other enabled plugins (with a `conflictCandidate` flag for any that also control line width), the plugin's own settings, the plugin files with sizes and hashes, the resolved width for the current note (source, raw value, unit, computed px, and the inline value with its `!important` flag), and which CSS rules actually set the line width and `max-width` (with origin, selector, value and `!important`), plus a `mismatch` boolean comparing the width the plugin set against the width in effect. The cause is meant to be read directly from these values; there is no prose conclusion. It never includes note contents, file names or vault paths.
+- **Width consistency logging.** After each width change the plugin compares the width it set against the width that actually took effect. A divergence (a rule overriding `max-width` directly) is recorded in the diagnostics log. This is silent; nothing interrupts your work.
+- **Error capture.** Uncaught errors and promise rejections that originate in the plugin are recorded (message only, paths stripped) so they show up in the report.
+- **Required diagnostics field in the bug report template**, plus a rewritten *Reporting bugs* section in the README explaining how to generate the report.
+
+### Changed
+- **The width is applied inline again, with `!important`.** The plugin writes `--file-line-width` directly onto each note's editor view with priority `!important`, restoring the behaviour 2.4.1 had (which 3.0.0 dropped when it removed the old `<style>` element and its inline important). An inline `!important` declaration beats any theme or snippet that marks `--file-line-width` `!important` on a selector, which is the most likely cause of #14, and the width no longer depends on `styles.css` being loaded. The only rule that can still win is one that sets `max-width` directly on the editor sizer with `!important` (bypassing the variable); the diagnostics report identifies exactly that rule.
+- **ESLint config now enforces `@typescript-eslint/no-unnecessary-type-assertion`** as an error, matching the stricter ruleset the community directory scanner runs (from the #13 directory review). This folds in the unreleased 3.0.1 fix for the two type-assertion warnings on that scorecard.
+
+### Fixed
+- **Width overridden by themes/snippets that use `!important` (#14).** With the inline `!important` restored, a theme or CSS snippet that sets `--file-line-width` `!important` no longer defeats the plugin. This is the most plausible cause of the reports that the width stopped working after 3.0.0.
+- **Width lost after re-enabling the plugin.** After disabling and re-enabling the plugin with a note open, the note kept the default width until it was reopened. The plugin now re-resolves and applies each note's real width as soon as the layout is ready.
+- **Two unnecessary type assertions in `SettingsManager`** (`codeBlockWidthUnit: 'px' as WidthUnit` and the `Object.assign(...) as CustomNoteWidthSettings` in `loadSettings`). TypeScript already infers the correct types.
+
+### Tests
+- **The end-to-end suite now runs against the installed Obsidian version** by copying the app's own `.asar` into the isolated user-data directory, and enables the plugin explicitly under Obsidian 1.13's restricted mode. New regression tests cover the inline `!important` width path (beating a snippet `--file-line-width !important`), a direct `max-width !important` override that the plugin cannot beat and the report must name, width without a loaded `styles.css`, the re-enable width fix, and a diagnostics self-check that verifies the report pinpoints each real failure mode (missing/stale `styles.css`, Readable line length off, aborted apply, width-source resolution, conflicting plugin, privacy).
+
 ## 3.0.0 — 2026-08-28
 
 Internal refactor to satisfy the Obsidian Community Directory guidelines (#13). No user-visible feature changes: every setting, command and status-bar behaviour of 2.4.1 works the same way in 3.0.0. Bumped to a major version because the code around the note-width application path was rewritten end-to-end.

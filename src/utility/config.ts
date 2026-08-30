@@ -72,6 +72,13 @@ export type ControlMode = 'slider' | 'pills';
 export type PerNoteMode = 'frontmatter' | 'local' | 'view-only';
 
 /**
+ * Resolved origin of a note's effective width, reported by diagnostics.
+ * - 'frontmatter' / 'local' / 'view-only' mirror the per-note storage that supplied the value.
+ * - 'default' means the global default applied (per-note off, or no stored value).
+ */
+export type WidthSource = 'frontmatter' | 'local' | 'view-only' | 'default';
+
+/**
  * How the width value is displayed next to the slider in the status bar.
  * - 'editable' shows an input field the user can type into.
  * - 'readonly' shows the value as text.

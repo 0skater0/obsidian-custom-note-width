@@ -20,7 +20,14 @@ export const COMMAND_IDS = {
 	CHANGE_NOTE_WIDTH: "change-note-width",
 	CHANGE_DEFAULT_NOTE_WIDTH: "change-default-note-width",
 	CHANGE_ALL_NOTE_WIDTH: "change-all-note-width",
+	CREATE_DIAGNOSTICS_REPORT: "create-diagnostics-report",
 };
+
+/**
+ * File name of the diagnostics report written into the plugin folder.
+ * Overwritten on every report so only the latest one is kept.
+ */
+export const DIAGNOSTICS_FILE_NAME = "diagnostics.json";
 
 /**
  * Identifiers for various DOM elements used in the plugin's UI.

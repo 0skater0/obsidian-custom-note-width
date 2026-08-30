@@ -733,6 +733,20 @@ export default class CustomNoteWidthSettingTab extends PluginSettingTab
 				});
 		}
 
+		// --- Diagnostics Section ---
+
+		new Setting(containerEl)
+			.setName(t("settings.diagnostics.name"))
+			.setDesc(t("settings.diagnostics.desc"))
+			.addButton((btn) =>
+			{
+				btn.setButtonText(t("settings.diagnostics.button"));
+				btn.onClick(() =>
+				{
+					void this.plugin.diagnostics.createReportAndReveal();
+				});
+			});
+
 		// Donation button
 		containerEl.appendChild(this.donationButton.createDonationButton(containerEl));
 

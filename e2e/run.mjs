@@ -14,7 +14,7 @@
 
 import { chromium } from 'playwright';
 import { spawn, execSync } from 'child_process';
-import { cpSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync } from 'fs';
+import { cpSync, mkdirSync, writeFileSync, existsSync, rmSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 // -----------------------------------------------------------------------------
@@ -139,6 +139,30 @@ writeFileSync(join(pluginDir, 'data.json'), JSON.stringify({
 mkdirSync(USER_DATA_DIR, { recursive: true });
 mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 mkdirSync(REPORT_DIR, { recursive: true });
+
+// Copy the newest installed app asar (obsidian-<ver>.asar) into the isolated
+// user-data-dir. The installer runs an older base version (~1.12.4); Obsidian's
+// auto-update mechanism loads a newer obsidian-*.asar from the user-data-dir if
+// present, so this makes the suite run against the real installed app version
+// (1.13.x) instead of the installer's. Without it the isolated instance lacks
+// the app-update asar and falls back to the installer version.
+(function deployAppAsar() {
+    const appData = process.env.APPDATA;
+    if (!appData) { log('APPDATA not set — running against installer version'); return; }
+    const appDir = join(appData, 'obsidian');
+    let asars;
+    try { asars = readdirSync(appDir).filter(f => /^obsidian-.*\.asar$/.test(f)); }
+    catch { log('no %APPDATA%/obsidian dir — running against installer version'); return; }
+    if (!asars.length) { log('no obsidian-*.asar found — running against installer version'); return; }
+    // Newest by mtime (a fresh install/update rewrites the current asar last).
+    const newest = asars
+        .map(f => ({ f, t: statSync(join(appDir, f)).mtimeMs }))
+        .sort((a, b) => a.t - b.t)
+        .at(-1).f;
+    cpSync(join(appDir, newest), join(USER_DATA_DIR, newest));
+    log('deployed app asar into userdata:', newest);
+})();
+
 writeFileSync(join(USER_DATA_DIR, 'obsidian.json'), JSON.stringify({
     vaults: {
         'e2e-vault': {
@@ -160,6 +184,14 @@ const child = spawn(OBSIDIAN_EXE, [
     `--no-first-run`,
     // Force UI language to English regardless of system locale
     `--lang=en-US`,
+    // Best-effort: ask Chromium to place the initial window off-screen so it does
+    // not flash to the foreground on every run. Obsidian may override these with
+    // its own centred bounds, in which case a brief flash still happens (see the
+    // post-connect move below). There is no persisted window-bounds file in the
+    // isolated user-data-dir to pre-seed, so this is as far as it goes without
+    // patching Obsidian.
+    `--window-position=-2400,-2400`,
+    `--window-size=${WINDOW_WIDTH},${WINDOW_HEIGHT}`,
 ], { detached: true, stdio: 'ignore', env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' } });
 child.unref();
 
@@ -187,10 +219,14 @@ async function refreshWin() {
 log('page:', win.url());
 
 // -----------------------------------------------------------------------------
-// Bootstrap step 1: fixed window size for deterministic screenshots
-
-await win.evaluate(({ w, h }) => window.resizeTo(w, h),
-    { w: WINDOW_WIDTH, h: WINDOW_HEIGHT });
+// Bootstrap step 1: fixed window size for deterministic screenshots, and push
+// the window off-screen so it stops stealing focus for the rest of the run.
+// (Screenshots are captured through CDP, not the OS window, so an off-screen
+// window still produces correct PNGs.)
+await win.evaluate(({ w, h }) => {
+    window.resizeTo(w, h);
+    try { window.moveTo(-2400, -2400); } catch {}
+}, { w: WINDOW_WIDTH, h: WINDOW_HEIGHT });
 await sleep(500);
 
 // Bootstrap step 2: wait for app.plugins, then auto-confirm any modal
@@ -228,12 +264,15 @@ async function dismissAnyModals() {
 }
 await dismissAnyModals();
 
-// Bootstrap step 3: force restricted-mode off + load the plugin
+// Bootstrap step 3: turn off restricted mode, then enable the plugin. Under
+// Obsidian 1.13 with an isolated user-data-dir the vault stays in restricted
+// mode despite trusted:true, so setEnable(true) is required before the plugin
+// can be enabled. enablePlugin both loads and persists it.
 await win.evaluate(async () => {
     const p = (window).app.plugins;
     if (p.setEnable) await p.setEnable(true);
-    if (p.loadPlugin) await p.loadPlugin('custom-note-width');
-    else if (p.enablePlugin) await p.enablePlugin('custom-note-width');
+    if (p.enablePlugin) await p.enablePlugin('custom-note-width');
+    else if (p.loadPlugin) await p.loadPlugin('custom-note-width');
 });
 
 // Bootstrap step 4: poll for the plugin to appear
@@ -368,13 +407,13 @@ async function readNoteFrontmatter(name) {
 // TESTS
 
 // --- A. Core loading & width application ---------------------------------
-await test('A01 - plugin loaded with 3.0.0 and correct manifest', async () => {
+await test('A01 - plugin loaded with 3.1.0 and correct manifest', async () => {
     const info = await win.evaluate(() => {
         const cnw = (window).app.plugins.plugins['custom-note-width'];
         return { id: cnw?.manifest?.id, version: cnw?.manifest?.version, isDesktopOnly: cnw?.manifest?.isDesktopOnly };
     });
     assertEquals(info.id, 'custom-note-width', 'id mismatch');
-    assertEquals(info.version, '3.0.0', 'version mismatch');
+    assertEquals(info.version, '3.1.0', 'version mismatch');
     assertEquals(info.isDesktopOnly, true, 'isDesktopOnly mismatch');
 }, win);
 
@@ -576,18 +615,24 @@ await test('G03 - disabling feature removes all mode classes', async () => {
 }, win);
 
 // --- I. Theme override robustness (before layout tests — popout close can release the CDP context) --
-await test('I01 - !important beats a rogue theme rule with important', async () => {
+await test('I01 - inline !important width beats a theme/snippet rule that marks --file-line-width !important (issue #14 fix)', async () => {
+    // 3.1.0 restores the 2.4.1 behaviour: the width is written inline WITH
+    // priority !important, so it beats a theme or snippet that marks
+    // --file-line-width !important on a selector. This is the most plausible #14
+    // cause, and it now works again (3.0.0/early-3.1.0 lost this race).
     await openNote('03 - Standard (50%)'); await sleep(400);
     await win.evaluate(() => {
+        window.app.plugins.plugins['custom-note-width'].noteWidthManager
+            .updateNoteWidthEditorStyle({ value: 900, unit: 'px' });
         const s = document.createElement('style');
         s.id = 'rogue-theme-test';
-        s.textContent = '.markdown-source-view { --file-line-width: 123px !important; }';
+        s.textContent = '.markdown-source-view, .markdown-preview-view { --file-line-width: 123px !important; }';
         document.head.appendChild(s);
     });
     await sleep(200);
     const w = await getEditorWidthPx();
     await win.evaluate(() => document.getElementById('rogue-theme-test')?.remove());
-    assert(w > 200, `plugin should win, width was ${w} (would be ~123 if rogue rule won)`);
+    assert(Math.abs(w - 900) < 5, `inline !important must beat a snippet --file-line-width !important, width was ${w} (rogue was 123)`);
 }, win);
 
 // --- H. Layout robustness ------------------------------------------------
@@ -1126,30 +1171,42 @@ await test('AA02 - unitRanges roundtrip preserved', async () => {
 
 // --- BB. Locale switching -------------------------------------------
 async function renderSettingsTab(language) {
-    // Open the settings modal so the tab gets its containerEl assigned,
-    // then re-render with the language we want.
-    return await win.evaluate((lang) => {
+    // Open the settings modal and switch to the plugin's tab the same way a user
+    // would. Under Obsidian 1.13 the tab's containerEl is built asynchronously
+    // after open(), so open + switch first, wait, then (re-)render for the locale.
+    await win.evaluate((lang) => {
         const w = window;
-        // Initialise containerEl if not yet set
-        if (!w.app.setting.activeTab) {
-            w.app.setting.open();
-            w.app.setting.openTabById('custom-note-width');
-        }
         const cnw = w.app.plugins.plugins['custom-note-width'];
-        if (lang) {
-            cnw.settingsManager.settings.language = lang;
-            // i18n.setLocaleOverride is called from saveSettings, but here we
-            // patch the module state directly via the plugin's re-load path:
-            const m = w.app.plugins.plugins['custom-note-width'];
-            // Use loadSettings to also re-apply the locale override
-            m.settingsManager.settings.language = lang;
-        }
+        if (lang) { cnw.settingsManager.settings.language = lang; }
+        w.app.setting.open();
+        w.app.setting.openTabById('custom-note-width');
+    }, language);
+    await sleep(400);
+    return await win.evaluate(() => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
         if (cnw.settingsTab.containerEl) {
             cnw.settingsTab.display();
             return true;
         }
         return false;
-    }, language);
+    });
+}
+
+// Query helpers that read from the plugin's setting-tab container. Under
+// Obsidian 1.13, opening the settings modal programmatically via CDP does not
+// attach it to the document, but display() still renders into the tab's
+// containerEl — which is what these tests inspect.
+async function settingItemNames() {
+    return await win.evaluate(() => {
+        const c = window.app.plugins.plugins['custom-note-width'].settingsTab?.containerEl;
+        return c ? Array.from(c.querySelectorAll('.setting-item-name')).map(el => el.textContent) : [];
+    });
+}
+async function settingItemCount() {
+    return await win.evaluate(() => {
+        const c = window.app.plugins.plugins['custom-note-width'].settingsTab?.containerEl;
+        return c ? c.querySelectorAll('.setting-item').length : 0;
+    });
 }
 
 await test('BB01 - German locale renders "Sprache" label', async () => {
@@ -1158,11 +1215,9 @@ await test('BB01 - German locale renders "Sprache" label', async () => {
     await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].settingsManager.loadSettings());
     await renderSettingsTab('de');
     await sleep(300);
-    const de = await win.evaluate(() =>
-        Array.from(document.querySelectorAll('.setting-item-name'))
-            .some(el => /sprache/i.test(el.textContent))
-    );
-    assert(de, 'German label "Sprache" should appear');
+    const names = await settingItemNames();
+    const de = names.some(n => /sprache/i.test(n));
+    assert(de, `German label "Sprache" should appear, got: ${JSON.stringify(names.slice(0, 3))}`);
 }, win);
 
 await test('BB02 - English locale renders "Language" label', async () => {
@@ -1170,11 +1225,9 @@ await test('BB02 - English locale renders "Language" label', async () => {
     await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].settingsManager.loadSettings());
     await renderSettingsTab('en');
     await sleep(300);
-    const en = await win.evaluate(() =>
-        Array.from(document.querySelectorAll('.setting-item-name'))
-            .some(el => el.textContent === 'Language')
-    );
-    assert(en, 'English label "Language" should appear');
+    const names = await settingItemNames();
+    const en = names.some(n => n === 'Language');
+    assert(en, `English label "Language" should appear, got: ${JSON.stringify(names.slice(0, 3))}`);
     await saveSettings({ language: 'auto' });
     await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].settingsManager.loadSettings());
 }, win);
@@ -1292,11 +1345,14 @@ await test('GG01 - sliderWidth setting persists across settings-tab render', asy
 }, win);
 
 // --- HH. Version footer / manifest -------------------------------------
-await test('HH01 - version footer contains v3.0.0 in settings-tab', async () => {
+await test('HH01 - version footer contains v3.1.0 in settings-tab', async () => {
     await renderSettingsTab();
     await sleep(300);
-    const found = await win.evaluate(() => document.querySelector('.cnw-version-info')?.textContent);
-    assert(found && found.includes('3.0.0'), `version footer should contain 3.0.0, got: ${JSON.stringify(found)}`);
+    const found = await win.evaluate(() => {
+        const c = window.app.plugins.plugins['custom-note-width'].settingsTab?.containerEl;
+        return c?.querySelector('.cnw-version-info')?.textContent;
+    });
+    assert(found && found.includes('3.1.0'), `version footer should contain 3.1.0, got: ${JSON.stringify(found)}`);
 }, win);
 
 // --- II. Layout event handling ----------------------------------------
@@ -1325,7 +1381,7 @@ await test('II02 - handleResize triggers width re-apply', async () => {
 await test('JJ01 - settings-tab display() renders many setting items', async () => {
     await renderSettingsTab();
     await sleep(300);
-    const count = await win.evaluate(() => document.querySelectorAll('.setting-item').length);
+    const count = await settingItemCount();
     assert(count >= 5, `settings-tab should render ≥5 items, got: ${count}`);
 }, win);
 
@@ -1336,9 +1392,10 @@ await test('JJ02 - settings-tab reset-overrides button appears in local mode', a
     });
     await renderSettingsTab();
     await sleep(300);
-    const hasReset = await win.evaluate(() =>
-        Array.from(document.querySelectorAll('button')).some(b => b.textContent === 'Reset')
-    );
+    const hasReset = await win.evaluate(() => {
+        const c = window.app.plugins.plugins['custom-note-width'].settingsTab?.containerEl;
+        return c ? Array.from(c.querySelectorAll('button')).some(b => b.textContent === 'Reset') : false;
+    });
     assert(hasReset, 'Reset button should be present in local mode');
     await saveSettings({ perNoteMode: 'frontmatter', localOverrides: {} });
 }, win);
@@ -1373,21 +1430,20 @@ await test('LL01 - EN vs DE labels differ in settings-tab', async () => {
     await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].settingsManager.loadSettings());
     await renderSettingsTab();
     await sleep(300);
-    const enLabels = await win.evaluate(() =>
-        Array.from(document.querySelectorAll('.setting-item-name')).map(el => el.textContent).join('|')
-    );
+    const enLabels = (await settingItemNames()).join('|');
     await saveSettings({ language: 'de' });
     await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].settingsManager.loadSettings());
     await renderSettingsTab();
     await sleep(300);
-    const deLabels = await win.evaluate(() =>
-        Array.from(document.querySelectorAll('.setting-item-name')).map(el => el.textContent).join('|')
-    );
+    const deLabels = (await settingItemNames()).join('|');
     assert(enLabels.length > 0, 'English labels should not be empty');
     assert(deLabels.length > 0, 'German labels should not be empty');
     assert(enLabels !== deLabels, 'EN and DE label sets should differ');
     await saveSettings({ language: 'auto' });
     await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].settingsManager.loadSettings());
+    // Close the settings modal so it does not overlay the width-reading tests below.
+    await win.evaluate(() => window.app.setting?.close?.());
+    await sleep(300);
 }, win);
 
 // --- MM. parseWidthValue edge cases -----------------------------------
@@ -1911,6 +1967,366 @@ await test('REG06 - [3.0.0] Bundle does not create <style> elements (no forbidde
     const main = readFileSync(join(REPO_ROOT, 'main.js'), 'utf-8');
     const hits = main.match(/createElement\s*\(\s*['"]style['"]/g) ?? [];
     assertEquals(hits.length, 0, `main.js should not create <style> elements, found ${hits.length}`);
+}, win);
+
+// --- 3.1.0 feature regressions (inline width, diagnostics, consistency) ------
+
+await test('REG07 - [3.1.0] width is applied as inline --file-line-width on the editor view', async () => {
+    // 3.1.0 drops the styles.css bridge and writes --file-line-width inline onto
+    // the leaf's view element. This is now the declaration that drives the width.
+    await saveSettings({ perNoteMode: 'frontmatter', enablePerNoteWidth: true });
+    await openNote('02 - Narrow (30%)'); await sleep(400);
+    const inline = await win.evaluate(() => {
+        const el = document.querySelector('.workspace-leaf.mod-active .markdown-source-view')
+                || document.querySelector('.workspace-leaf.mod-active .markdown-preview-view');
+        return el ? el.style.getPropertyValue('--file-line-width') : null;
+    });
+    assert(inline && inline.trim().length > 0, `--file-line-width should be set inline on the view, got: ${JSON.stringify(inline)}`);
+    assertMatches(inline.trim(), /^\d+(\.\d+)?px$/, 'inline --file-line-width format');
+}, win);
+
+await test('REG08 - [3.1.0] the active-leaf-change handler applies width (no manual apply)', async () => {
+    // Verifies the plugin's registered active-leaf-change handler resolves and
+    // applies the per-note width, without the test calling applyWidthForLeaf.
+    // Uses a distinctive local override (in px, to avoid the % char-width path)
+    // so the test does not depend on frontmatter that earlier tests mutate, and
+    // fires the workspace event explicitly (synthetic events do not always
+    // propagate under CDP).
+    await win.evaluate(async () => {
+        const w = window;
+        const cnw = w.app.plugins.plugins['custom-note-width'];
+        const file = w.app.vault.getFiles().find(f => f.basename === '02 - Narrow (30%)');
+        await cnw.settingsManager.saveSettings({
+            ...cnw.settingsManager.settings,
+            enablePerNoteWidth: true, perNoteMode: 'local',
+            localOverrides: { [file.path]: { value: 1300, unit: 'px' } },
+        });
+    });
+    await sleep(300);
+    await win.evaluate(async () => {
+        const w = window;
+        const file = w.app.vault.getFiles().find(f => f.basename === '02 - Narrow (30%)');
+        const leaf = w.app.workspace.getLeaf(false);
+        await leaf.openFile(file);
+        w.app.workspace.setActiveLeaf(leaf);
+        // Fire the event the plugin subscribes to; its handler must apply the override.
+        w.app.workspace.trigger('active-leaf-change', leaf);
+    });
+    await sleep(700);
+    const width = await getEditorWidthPx();
+    assert(Math.abs(width - 1300) < 5, `active-leaf-change handler should apply the 1300px local override (no manual apply), got ${width}`);
+    await saveSettings({ perNoteMode: 'frontmatter', localOverrides: {} });
+}, win);
+
+await test('REG09 - [3.1.0] width still applies when styles.css is not loaded', async () => {
+    // The width no longer depends on the plugin stylesheet: Obsidian's own
+    // `.cm-sizer { max-width: var(--file-line-width) }` consumes the inline value.
+    await openNote('04 - Wide (100%)'); await sleep(400);
+    const result = await win.evaluate(() => {
+        // Remove the plugin's own stylesheet, found via its sentinel variable.
+        let removed = false;
+        for (const sheet of Array.from(document.styleSheets)) {
+            let rules; try { rules = sheet.cssRules; } catch { continue; }
+            if (!rules) continue;
+            for (const r of Array.from(rules)) {
+                if (r.cssText && r.cssText.includes('--cnw-styles-loaded')) {
+                    sheet.ownerNode?.remove();
+                    removed = true;
+                    break;
+                }
+            }
+            if (removed) break;
+        }
+        // Apply a distinctive width with styles.css gone.
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        cnw.noteWidthManager.updateNoteWidthEditorStyle({ value: 1234, unit: 'px' });
+        const view = document.querySelector('.workspace-leaf.mod-active .markdown-source-view');
+        return { removed, inline: view ? view.style.getPropertyValue('--file-line-width') : null };
+    });
+    assert(result.removed, 'plugin stylesheet (with --cnw-styles-loaded) should be found and removed');
+    assertEquals(result.inline, '1234px', 'inline --file-line-width should be set even without styles.css');
+    await sleep(200);
+    const width = await getEditorWidthPx();
+    assert(Math.abs(width - 1234) < 5, `width should follow the inline value without styles.css (~1234), got ${width}`);
+    // Restore styles.css by re-enabling the plugin (re-injects its stylesheet).
+    await win.evaluate(async () => {
+        await window.app.plugins.disablePlugin('custom-note-width');
+        await window.app.plugins.enablePlugin('custom-note-width');
+    });
+    await sleep(1200);
+}, win);
+
+await test('REG10 - [3.1.0] max-width !important on the sizer wins, is logged, and the report names it', async () => {
+    // The one case the plugin genuinely cannot beat: a rule setting max-width
+    // directly on the sizer with !important (bypassing --file-line-width). It
+    // must be logged as a consistency mismatch AND pinpointed by the report.
+    await openNote('03 - Standard (50%)'); await sleep(400);
+    await win.evaluate(() => {
+        const s = document.createElement('style');
+        s.id = 'rogue-consistency-test';
+        s.textContent = '.cm-sizer, .markdown-preview-sizer { max-width: 111px !important; }';
+        document.head.appendChild(s);
+        // Apply a clearly different width so the mismatch is unambiguous.
+        window.app.plugins.plugins['custom-note-width'].noteWidthManager
+            .updateNoteWidthEditorStyle({ value: 1500, unit: 'px' });
+    });
+    await sleep(300); // let the debounced (rAF) consistency check run
+    const state = await win.evaluate(async () => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        const log = cnw.diagnosticsLog;
+        const report = await cnw.diagnostics.buildReport();
+        return {
+            mismatches: log.getCounters().consistencyMismatches,
+            hasWarn: log.getEntries().some(e => e.level === 'warn' && /mismatch/i.test(e.message)),
+            reportMismatch: report.activeNote?.mismatch,
+            computedFileLineWidth: report.activeNote?.computedFileLineWidth,
+            computedSizerMaxWidth: report.activeNote?.computedSizerMaxWidth,
+            winning: report.winningCssRules.find(r => r.target === 'sizer-max-width' && r.important && /111px/.test(r.value)),
+        };
+    });
+    await win.evaluate(() => document.getElementById('rogue-consistency-test')?.remove());
+    assert(state.mismatches > 0, `a consistency mismatch should be recorded, got ${state.mismatches}`);
+    assert(state.hasWarn, 'a warn entry about the width mismatch should be in the diagnostics log');
+    assert(state.reportMismatch === true, 'report activeNote.mismatch should be true');
+    assertEquals(state.computedSizerMaxWidth, '111px', 'report should record the actual (overridden) sizer max-width');
+    assert(state.winning, `report must name the winning max-width !important rule, got: ${JSON.stringify(state.winning)}`);
+    assert(state.winning.origin === 'style#rogue-consistency-test', `winning rule origin should identify the source, got: ${state.winning.origin}`);
+    assertEquals(state.winning.important, true, 'winning rule must be recorded as !important');
+    await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].noteWidthManager.applyWidthForLeaf());
+    await sleep(200);
+}, win);
+
+await test('REG11 - [3.1.0] diagnostics report has all fields and leaks no paths or file names', async () => {
+    await saveSettings({ perNoteMode: 'frontmatter', enablePerNoteWidth: true });
+    await openNote('03 - Standard (50%)'); await sleep(500);
+    const { report, json, basename } = await win.evaluate(async () => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        const report = await cnw.diagnostics.buildReport();
+        const basename = window.app.workspace.getActiveFile()?.basename ?? '';
+        return { report, json: JSON.stringify(report), basename };
+    });
+    // Structure / completeness
+    assertEquals(report.schema?.reportVersion, 3, 'reportVersion should be 3');
+    assert(!('summary' in report), 'report must NOT carry a derived summary block (raw fields only)');
+    assertEquals(report.environment?.pluginVersion, '3.1.0', 'report should carry plugin version 3.1.0');
+    assert(typeof report.environment?.obsidianVersion === 'string' && report.environment.obsidianVersion.length > 0, 'obsidianVersion should be a non-empty string');
+    assert('localOverridesCount' in report.pluginSettings, 'pluginSettings should carry localOverridesCount');
+    assert(!('localOverrides' in report.pluginSettings), 'pluginSettings must NOT carry the localOverrides map (keys are paths)');
+    assertEquals(report.styles?.loaded, true, 'styles.loaded should be true (sentinel present)');
+    assertEquals(report.styles?.versionMatches, true, 'styles.versionMatches should be true (styles.css version matches plugin)');
+    assert(report.activeNote && typeof report.activeNote.widthSource === 'string', 'activeNote.widthSource should be present');
+    assertEquals(report.activeNote.fileLineWidthInlineImportant, true, 'activeNote should record that --file-line-width is set inline with !important');
+    assert(Array.isArray(report.winningCssRules), 'winningCssRules should be an array');
+    assert(report.runtime && typeof report.runtime.applyCalls === 'number', 'runtime.applyCalls should be a number');
+    assert(Array.isArray(report.log), 'log should be an array');
+    assert(Array.isArray(report.pluginFiles) && report.pluginFiles.some(f => f.name === 'main.js' && f.sha256), 'pluginFiles should include main.js with a sha256');
+    // Privacy: no note name, no filenames, no vault path.
+    // (Use /\.md\b/ so CSS class names like `.markdown-source-view` do not count;
+    // only a real "<name>.md" boundary matches.)
+    assert(basename.length > 0, 'precondition: an active note with a name');
+    assert(!json.includes(basename), `report must not contain the active note name "${basename}"`);
+    assert(!/\.md\b/.test(json), 'report must not contain any .md file name');
+    assert(!json.toLowerCase().includes('vault'), 'report must not contain the vault path or name');
+}, win);
+
+await test('REG12 - [3.1.0] width is restored after disable/enable without reopening the note', async () => {
+    // In-place-update glitch: the open note used to fall back to the default
+    // width after a plugin reload until reopened. onLayoutReady now re-resolves it.
+    await saveSettings({ perNoteMode: 'frontmatter', enablePerNoteWidth: true, defaultWidth: 50, defaultWidthUnit: '%' });
+    await openNote('02 - Narrow (30%)'); await sleep(400);
+    const before = await getEditorWidthPx();
+    await win.evaluate(async () => {
+        await window.app.plugins.disablePlugin('custom-note-width');
+        await window.app.plugins.enablePlugin('custom-note-width');
+    });
+    await sleep(1200); // onLayoutReady + rAF re-apply, no tab switch
+    const after = await getEditorWidthPx();
+    const inline = await win.evaluate(() => {
+        const el = document.querySelector('.workspace-leaf.mod-active .markdown-source-view');
+        return el ? el.style.getPropertyValue('--file-line-width') : null;
+    });
+    assert(before > 0 && after > 0, `widths readable: before=${before}, after=${after}`);
+    assert(Math.abs(before - after) < 10, `note width must be restored (30%) after re-enable, not the 50% default (before ${before}, after ${after})`);
+    assert(inline && inline.trim().length > 0, `--file-line-width should be inline after re-enable without reopening, got ${JSON.stringify(inline)}`);
+}, win);
+
+// --- Diagnostics self-check: each failure scenario must be pinpointable -------
+
+await test('REG13 - [3.1.0] report shows our --file-line-width won despite a snippet !important', async () => {
+    // Scenario 2: a snippet marks --file-line-width !important; the plugin's inline
+    // !important still wins. The report must show our inline value present, important,
+    // and equal to the computed value (no mismatch).
+    await openNote('03 - Standard (50%)'); await sleep(400);
+    const r = await win.evaluate(async () => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        const s = document.createElement('style');
+        s.id = 'rogue-flw-test';
+        s.textContent = '.markdown-source-view, .markdown-preview-view { --file-line-width: 123px !important; }';
+        document.head.appendChild(s);
+        cnw.noteWidthManager.updateNoteWidthEditorStyle({ value: 1400, unit: 'px' });
+        const report = await cnw.diagnostics.buildReport();
+        document.getElementById('rogue-flw-test')?.remove();
+        return report.activeNote;
+    });
+    assertEquals(r.fileLineWidthInline, '1400px', 'report should show our inline --file-line-width value');
+    assertEquals(r.fileLineWidthInlineImportant, true, 'report should show our inline value is !important');
+    assertEquals(r.computedFileLineWidth, '1400px', 'our value should have won the --file-line-width cascade');
+    assertEquals(r.mismatch, false, 'no mismatch: --file-line-width and sizer max-width agree');
+    await win.evaluate(() => window.app.plugins.plugins['custom-note-width'].noteWidthManager.applyWidthForLeaf());
+    await sleep(200);
+}, win);
+
+await test('REG14 - [3.1.0] report flags a missing/not-applied and a stale styles.css', async () => {
+    // Scenario 3a: styles.css present on disk but not applied → styles.loaded false.
+    await openNote('03 - Standard (50%)'); await sleep(300);
+    const missing = await win.evaluate(async () => {
+        // Remove the plugin's own stylesheet (found via its sentinel).
+        for (const sheet of Array.from(document.styleSheets)) {
+            let rules; try { rules = sheet.cssRules; } catch { continue; }
+            if (!rules) continue;
+            let hit = false;
+            for (const rr of Array.from(rules)) { if (rr.cssText && rr.cssText.includes('--cnw-styles-loaded')) { hit = true; break; } }
+            if (hit) { sheet.ownerNode?.remove(); break; }
+        }
+        const report = await window.app.plugins.plugins['custom-note-width'].diagnostics.buildReport();
+        return { loaded: report.styles.loaded };
+    });
+    assertEquals(missing.loaded, false, 'styles.loaded should be false once the stylesheet is removed');
+    // Restore styles.css.
+    await win.evaluate(async () => {
+        await window.app.plugins.disablePlugin('custom-note-width');
+        await window.app.plugins.enablePlugin('custom-note-width');
+    });
+    await sleep(1200);
+    // Scenario 3b: simulate a stale styles.css by overriding the reported version.
+    const stale = await win.evaluate(async () => {
+        const s = document.createElement('style');
+        s.id = 'stale-styles-test';
+        s.textContent = ':root { --cnw-styles-version: "0.0.1"; }';
+        document.head.appendChild(s);
+        const report = await window.app.plugins.plugins['custom-note-width'].diagnostics.buildReport();
+        document.getElementById('stale-styles-test')?.remove();
+        return { styles: report.styles };
+    });
+    assertEquals(stale.styles.version, '0.0.1', 'report should read the (overridden) styles version');
+    assertEquals(stale.styles.versionMatches, false, 'versionMatches should be false for a stale styles.css');
+}, win);
+
+await test('REG15 - [3.1.0] report records when Readable line length is OFF', async () => {
+    // Scenario 4: readable line length off → width has no effect. The report must
+    // carry the raw obsidianSettings.readableLineLength value.
+    await openNote('03 - Standard (50%)'); await sleep(300);
+    const r = await win.evaluate(async () => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        const vault = window.app.vault;
+        const original = vault.getConfig;
+        // Stub getConfig so readableLineLength reads false, without changing real state.
+        vault.getConfig = (key) => (key === 'readableLineLength' ? false : original.call(vault, key));
+        const report = await cnw.diagnostics.buildReport();
+        vault.getConfig = original;
+        return { readable: report.obsidianSettings.readableLineLength };
+    });
+    assertEquals(r.readable, false, 'report should reflect readableLineLength=false');
+}, win);
+
+await test('REG16 - [3.1.0] report records an aborted apply with reason', async () => {
+    // Scenario 5: no active markdown view → apply aborts with 'no-view'.
+    const r = await win.evaluate(async () => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        const leaves = window.app.workspace.getLeavesOfType('markdown');
+        for (const l of leaves) l.detach();
+        cnw.noteWidthManager.applyWidthForLeaf(); // no active markdown view
+        const report = await cnw.diagnostics.buildReport();
+        return { lastApply: report.runtime.lastApply };
+    });
+    assertEquals(r.lastApply?.completed, false, 'lastApply.completed should be false after an aborted apply');
+    assertEquals(r.lastApply?.abortReason, 'no-view', 'abortReason should be no-view');
+    await openNote('03 - Standard (50%)'); await sleep(300); // restore context
+}, win);
+
+await test('REG17 - [3.1.0] report resolves the width source, raw value, unit and computed px', async () => {
+    // Scenario 6: source disambiguation between local override and frontmatter.
+    await win.evaluate(async () => {
+        const w = window;
+        const cnw = w.app.plugins.plugins['custom-note-width'];
+        const file = w.app.vault.getFiles().find(f => f.basename === '03 - Standard (50%)');
+        await cnw.settingsManager.saveSettings({
+            ...cnw.settingsManager.settings,
+            enablePerNoteWidth: true, perNoteMode: 'local',
+            localOverrides: { [file.path]: { value: 950, unit: 'px' } },
+        });
+    });
+    await openNote('03 - Standard (50%)'); await sleep(400);
+    const local = await win.evaluate(async () => {
+        const report = await window.app.plugins.plugins['custom-note-width'].diagnostics.buildReport();
+        return report.activeNote;
+    });
+    assertEquals(local.widthSource, 'local', 'widthSource should be local when a local override exists');
+    assertEquals(local.desiredValue, 950, 'desiredValue should be the override value');
+    assertEquals(local.desiredUnit, 'px', 'desiredUnit should be px');
+    assertEquals(local.desiredCss, '950px', 'desiredCss should be the computed px value');
+    // Switch to frontmatter mode: source flips, raw frontmatter width is reported.
+    await saveSettings({ perNoteMode: 'frontmatter', localOverrides: {} });
+    await openNote('03 - Standard (50%)'); await sleep(400);
+    const fm = await win.evaluate(async () => {
+        const report = await window.app.plugins.plugins['custom-note-width'].diagnostics.buildReport();
+        return report.activeNote;
+    });
+    assertEquals(fm.widthSource, 'frontmatter', 'widthSource should be frontmatter after switching');
+    assert(fm.rawFrontmatterWidth !== null && fm.rawFrontmatterWidth !== undefined, `rawFrontmatterWidth should be reported, got: ${JSON.stringify(fm.rawFrontmatterWidth)}`);
+}, win);
+
+await test('REG18 - [3.1.0] report flags another active line-width plugin as a conflict candidate', async () => {
+    // Scenario 7: another enabled plugin whose id/name suggests line-width control.
+    const r = await win.evaluate(async () => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        const plugins = window.app.plugins;
+        const fakeId = 'obsidian-editor-width-slider';
+        const addedManifest = !plugins.manifests[fakeId];
+        if (addedManifest) plugins.manifests[fakeId] = { id: fakeId, name: 'Editor Width Slider', version: '1.0.0' };
+        const added = !plugins.enabledPlugins.has(fakeId);
+        if (added) plugins.enabledPlugins.add(fakeId);
+        const report = await cnw.diagnostics.buildReport();
+        if (added) plugins.enabledPlugins.delete(fakeId);
+        if (addedManifest) delete plugins.manifests[fakeId];
+        return { active: report.otherPlugins.active };
+    });
+    const flagged = r.active.find(p => p.id === 'obsidian-editor-width-slider');
+    assert(flagged, `the fake width plugin should appear in otherPlugins.active, got: ${JSON.stringify(r.active)}`);
+    assertEquals(flagged.conflictCandidate, true, 'the width plugin should be marked as a conflict candidate');
+}, win);
+
+await test('REG19 - [3.1.0] captured error messages never leak paths or note names', async () => {
+    // Feed path-laden messages in every style; the sanitiser must strip them all,
+    // keep the error type, and the relevance filter must ignore non-plugin errors.
+    const r = await win.evaluate(() => {
+        const cnw = window.app.plugins.plugins['custom-note-width'];
+        // A stack pointing at the plugin so captureError records the entry.
+        const pluginStack = 'Error\n  at f (app://x/D:/My Vault/.obsidian/plugins/custom-note-width/main.js:1:1)';
+        const messages = [
+            'Cannot read /Users/john/vault/Secret Note.md at line 5',
+            'ENOENT C:\\Users\\john\\Vault\\Secret.md is missing',
+            'open \\\\server\\share\\Secret.md failed',
+            'parse error in Folder/Sub/Secret.md',
+            'failed to load "My Private Note.md"',
+            'Secret.canvas could not be opened',
+        ];
+        for (const m of messages) cnw.diagnostics.captureError('error', 'TypeError', m, pluginStack, undefined);
+        // Non-plugin error: distinctive non-path marker, stack WITHOUT the plugin.
+        cnw.diagnostics.captureError('error', 'TypeError', 'RELEVANCEPROBE_TOKEN sample', 'at g (app://x/other-plugin/main.js:1:1)', undefined);
+        const all = cnw.diagnosticsLog.getEntries();
+        return {
+            allText: JSON.stringify(all),
+            mine: all.filter(e => e.level === 'error' && e.message.includes('[TypeError]') && e.message.includes('<path>')).map(e => e.message),
+        };
+    });
+    const forbidden = ['Secret', 'john', 'server', 'share', 'My Private', 'Note.md', '.canvas', '/Users', 'Folder/', 'C:\\', 'My Vault'];
+    for (const token of forbidden) {
+        assert(!r.allText.includes(token), `sanitised log must not contain "${token}"; log was: ${r.allText}`);
+    }
+    assert(r.mine.length >= 6, `all 6 path-laden plugin errors should be recorded with a <path> placeholder, got ${r.mine.length}`);
+    r.mine.forEach(m => assert(m.includes('[TypeError]'), `error type should be preserved, got: ${m}`));
+    assert(!r.allText.includes('RELEVANCEPROBE_TOKEN'), 'a non-plugin error (stack without the plugin) must NOT be recorded');
 }, win);
 
 // Z-tests always LAST — they release the CDP context.

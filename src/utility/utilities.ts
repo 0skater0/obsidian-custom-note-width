@@ -126,3 +126,38 @@ export function validateWidthValue(wv: WidthValue, unitConfig?: UnitConfig): Wid
 {
 	return { value: validateWidth(wv.value, wv.unit, unitConfig), unit: wv.unit };
 }
+
+/**
+ * Parses the leading pixel number from a CSS value like "700px".
+ * @param value - The CSS value string (or null).
+ * @returns The pixel number, or null when the value is not px-shaped.
+ */
+export function parsePxValue(value: string | null): number | null
+{
+	if (!value)
+	{
+		return null;
+	}
+	const match = value.trim().match(/^(-?\d+(?:\.\d+)?)px$/);
+	return match ? parseFloat(match[1]) : null;
+}
+
+/**
+ * Compares two px-valued CSS strings and reports whether they differ beyond a
+ * rounding tolerance. Non-px values (e.g. "none", "80ch") count as "not
+ * differing" because they cannot be compared meaningfully here.
+ * @param a - First CSS value.
+ * @param b - Second CSS value.
+ * @param tolerance - Allowed absolute difference in px (default 1).
+ * @returns True when both are px values more than `tolerance` apart.
+ */
+export function pixelsDiffer(a: string | null, b: string | null, tolerance = 1): boolean
+{
+	const pa = parsePxValue(a);
+	const pb = parsePxValue(b);
+	if (pa === null || pb === null)
+	{
+		return false;
+	}
+	return Math.abs(pa - pb) > tolerance;
+}

@@ -40,6 +40,8 @@ export default class EventHandler
 	 */
 	private handleResize = async (): Promise<void> =>
 	{
+		this.plugin.diagnosticsLog.recordEvent("resize");
+
 		// Check if the slider width exceeds the threshold and reset it if necessary
 		if (this.plugin.settingsManager.getSliderWidth() / window.innerWidth > CONFIG.SLIDER_HIDE_THRESHOLD)
 		{
@@ -61,6 +63,8 @@ export default class EventHandler
 	 */
 	private handleActiveLeafChange = async (leaf: WorkspaceLeaf | null): Promise<void> =>
 	{
+		this.plugin.diagnosticsLog.recordEvent("activeLeafChange");
+
 		// Cancel any pending YAML write from slider interaction
 		if (this.updateTimeout) window.clearTimeout(this.updateTimeout);
 
@@ -93,6 +97,7 @@ export default class EventHandler
 	 */
 	private handleLayoutChange = (): void =>
 	{
+		this.plugin.diagnosticsLog.recordEvent("layoutChange");
 		this.plugin.noteWidthManager.cleanupViewOnlyWidths();
 		if (this.layoutChangeSuppressed) return;
 		this.plugin.noteWidthManager.applyWidthForLeaf();

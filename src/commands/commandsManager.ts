@@ -2,6 +2,7 @@ import CustomNoteWidth from "src/main";
 import NoteWidthModal from "src/modals/noteWidthModal";
 import { Command, ChangeNoteWidthCommand, ChangeDefaultNoteWidthCommand, ChangeAllNoteWidthCommand } from "src/commands/command";
 import { WidthUnit, WidthValue, VALID_UNITS, UnitConfig, PILLS_PRESET_COUNT } from "src/utility/config";
+import { COMMAND_IDS } from "src/utility/constants";
 import { t } from "src/i18n/i18n";
 
 /**
@@ -37,6 +38,24 @@ export default class CommandsManager
 
 		this.registerCommands();
 		this.registerPillCommands();
+		this.registerDiagnosticsCommand();
+	}
+
+	/**
+	 * Registers the "Create diagnostics report" command. It runs directly (no
+	 * modal) and is always available, so users can generate a report even when
+	 * no note is open.
+	 */
+	private registerDiagnosticsCommand(): void
+	{
+		this.plugin.addCommand({
+			id: COMMAND_IDS.CREATE_DIAGNOSTICS_REPORT,
+			name: t("command.create_diagnostics.name"),
+			callback: () =>
+			{
+				void this.plugin.diagnostics.createReportAndReveal();
+			},
+		});
 	}
 
 	/**

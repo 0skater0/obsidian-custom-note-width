@@ -6,16 +6,16 @@
 ![Open issues](https://img.shields.io/github/issues/0skater0/obsidian-custom-note-width)
 ![Last commit](https://img.shields.io/github/last-commit/0skater0/obsidian-custom-note-width)
 
-Control the line width of every note in Obsidian — individually, per note, or globally. A small control in the status bar gives you instant access, YAML frontmatter persists widths per note, and a new *Pills* mode lets you switch between presets with a single click.
+Control the line width of every note in Obsidian: individually, per note, or globally. A small control in the status bar gives you instant access, YAML frontmatter persists widths per note, and a new *Pills* mode lets you switch between presets with a single click.
 
 ![Demo GIF](images/demo.gif)
 
 ## Features
 
-- **Per-note widths** — stored in the note's frontmatter, kept locally on your device, or held only until the note is closed
-- **Status-bar controls** — choose between a classic slider or *Pills* (three preset buttons)
-- **Three width units** — `%`, `px`, `ch`
-- **Independent code block width** — so narrow prose and wide code can coexist
+- **Per-note widths**: stored in the note's frontmatter, kept locally on your device, or held only until the note is closed
+- **Status-bar controls**: choose between a classic slider or *Pills* (three preset buttons)
+- **Three width units**: `%`, `px`, `ch`
+- **Independent code block width**: so narrow prose and wide code can coexist
 - **Hotkey-ready commands** for every width operation
 - **Full English, German and Russian UI**
 
@@ -47,9 +47,9 @@ The plugin modifies Obsidian's `--file-line-width` CSS variable. Control it thre
 
 ### Width units
 
-- **%** — relative to the editor pane (0–100)
-- **px** — absolute pixels (100–4000)
-- **ch** — character widths (10–200)
+- **%**: relative to the editor pane (0–100)
+- **px**: absolute pixels (100–4000)
+- **ch**: character widths (10–200)
 
 Switch units via the unit label next to the slider/value (slider mode) or inside a preset editor (pills mode).
 
@@ -88,6 +88,7 @@ Enable under **Settings → Control mode → Pills**. The status bar shows three
 | **Reading mode** | Apply code block width in preview | `on` |
 | **Source mode** | Apply code block width in source view | `on` |
 | **Live preview mode** | Apply code block width in live preview | `on` |
+| **Diagnostics** | Create an anonymised diagnostics report for a bug report | button |
 
 </details>
 
@@ -101,6 +102,7 @@ All commands appear in the palette and can be bound to hotkeys under **Settings 
 | Change the default note width | Opens a modal, updates the global default |
 | Change the width for all notes | Opens a modal, rewrites every note's YAML width |
 | Apply pill preset 1 / 2 / 3 | Applies the given preset (Pills mode only) |
+| Create diagnostics report | Writes an anonymised `diagnostics.json`, copies it to the clipboard, and reveals it |
 
 ## Theme compatibility
 
@@ -111,21 +113,46 @@ All commands appear in the palette and can be bound to hotkeys under **Settings 
 | Default | Works | 1.12.4 | Fully functional |
 | Things | Works | 1.12.4 | Fully functional |
 
-Your theme isn't listed? Open a PR adding a row — see [CONTRIBUTING](CONTRIBUTING.md).
+Your theme isn't listed? Open a PR adding a row; see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Reporting bugs
 
-Please include:
+The fastest way to get a width bug fixed is to include a **diagnostics report**:
 
-1. **Obsidian version** (`Settings → General`)
-2. **Plugin version** (`Settings → Community plugins`)
-3. **Theme name** (`Settings → Appearance → Themes`)
-4. **Operating system**
-5. **Console errors** — open DevTools (`Ctrl+Shift+I` / `Cmd+Option+I`), Console tab, copy anything red referencing `custom-note-width`
-6. **Steps to reproduce** and what you expected vs what happened
-7. **Screenshots or screen recordings** help a lot — tools like [LICEcap](https://www.cockos.com/licecap/) or [ShareX](https://getsharex.com/) work well
+1. Run **Create diagnostics report** from the command palette (`Ctrl+P` / `Cmd+P`, then search *"Custom Note Width"*), or click the button under `Settings → Custom Note Width → Diagnostics`.
+2. The report is copied to your clipboard and saved as `diagnostics.json` in the plugin folder, and the folder opens with the file highlighted.
+3. Paste it into your bug report, or attach the file.
 
-> Reports that only say *"it doesn't work"* can't be investigated — details make the difference.
+Also helpful:
+
+- **Console errors**: open DevTools (`Ctrl+Shift+I` / `Cmd+Option+I`), Console tab, copy anything red referencing `custom-note-width`.
+- **Steps to reproduce**, and what you expected versus what happened.
+- **Screenshots or screen recordings**: tools like [LICEcap](https://www.cockos.com/licecap/) or [ShareX](https://getsharex.com/) work well.
+
+> Reports that only say *"it doesn't work"* are hard to investigate. The diagnostics report makes the difference.
+
+## Privacy of the diagnostics report
+
+The report is written to `diagnostics.json` in the plugin folder, copied to your clipboard, and revealed in your file manager. You can read it before sharing it. It is designed to describe your setup without describing your notes.
+
+**What it contains:**
+
+- Plugin version, Obsidian version, Electron/Chrome/Node versions, platform and OS version, UI language, device pixel ratio and window/editor width
+- Relevant Obsidian editor settings: readable line length, default view mode, live preview, base font size
+- Active theme name and version, and the names of enabled CSS snippets
+- Other enabled community plugins by id and version, with a flag for any that also control line width
+- The plugin's own settings (with local per-note overrides reduced to a count, since their keys are file paths)
+- The plugin's shipped files (`main.js`, `manifest.json`, `styles.css`) with sizes and SHA-256 hashes, plus whether `styles.css` is loaded and its version
+- For the active note: view mode, where its width comes from (frontmatter, local, or default), the width value and unit, the computed pixel width, and the width that is actually in effect
+- Which CSS rules set the line width and `max-width` (selector, value, origin such as app/theme/snippet/plugin, and whether they use `!important`)
+- Runtime counters and the plugin's own recent warnings and errors
+
+**What it never contains:**
+
+- Note contents
+- File names, note titles, folder names or the vault name
+- File-system paths or URLs (error messages are stripped of anything path-like before they are stored)
+- Any frontmatter other than the width value itself
 
 ## Backups
 
@@ -137,7 +164,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and th
 
 ## License
 
-[MIT](LICENSE) — provided as-is, no warranty.
+[MIT](LICENSE), provided as-is, no warranty.
 
 ## Support
 

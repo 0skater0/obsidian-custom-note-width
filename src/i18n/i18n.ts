@@ -61,12 +61,15 @@ const en: Translations = {
 	"command.change_all_width.name": "Change the width for all notes",
 	"command.change_all_width.modal_title": "Enter the width for all notes",
 	"command.apply_pill_preset.name": "Apply pill preset {{index}}",
+	"command.create_diagnostics.name": "Create diagnostics report",
 
 	// Notices
 	"notice.slider_too_large": "Slider too large!",
 	"notice.local_overrides_cleared": "Removed {{count}} local width override(s).",
 	"notice.local_overrides_empty": "No local width overrides to clear.",
 	"notice.yaml_key_forbidden": "This YAML key is not allowed.",
+	"notice.diagnostics_created": "Diagnostics report copied to the clipboard and saved to the plugin folder. Attach it to your GitHub issue.",
+	"notice.diagnostics_failed": "Could not write the diagnostics report. Check the developer console for details.",
 	"modal.reset_overrides.title": "Reset local width overrides",
 	"modal.reset_overrides.desc": "{{count}} note(s) have a locally stored width. Pick which ones to remove.",
 	"modal.reset_overrides.search_placeholder": "Filter by path…",
@@ -139,6 +142,11 @@ const en: Translations = {
 	"settings.live_preview.name": "Live preview mode",
 	"settings.live_preview.desc": "Apply code block width in live preview mode.",
 
+	// Settings — Diagnostics
+	"settings.diagnostics.name": "Diagnostics",
+	"settings.diagnostics.desc": "Create an anonymised diagnostics report to attach to a bug report on GitHub. It never includes note contents, file names, or vault paths.",
+	"settings.diagnostics.button": "Create diagnostics report",
+
 	// Plugin info
 	"plugin.loaded": "{{name}} v{{version}} loaded!",
 	"plugin.unloaded": "{{name}} v{{version}} unloaded!",
@@ -161,12 +169,15 @@ const de: Translations = {
 	"command.change_all_width.name": "Breite f\u00FCr alle Notizen \u00E4ndern",
 	"command.change_all_width.modal_title": "Breite f\u00FCr alle Notizen eingeben",
 	"command.apply_pill_preset.name": "Pill-Voreinstellung {{index}} anwenden",
+	"command.create_diagnostics.name": "Diagnosebericht erstellen",
 
 	// Notices
 	"notice.slider_too_large": "Schieberegler zu gro\u00DF!",
 	"notice.local_overrides_cleared": "{{count}} lokale Breite(n) entfernt.",
 	"notice.local_overrides_empty": "Keine lokalen Breiten zum Zur\u00FCcksetzen.",
 	"notice.yaml_key_forbidden": "Dieser YAML-Schl\u00FCssel ist nicht erlaubt.",
+	"notice.diagnostics_created": "Diagnosebericht in die Zwischenablage kopiert und im Plugin-Ordner gespeichert. H\u00E4nge ihn an dein GitHub-Issue an.",
+	"notice.diagnostics_failed": "Diagnosebericht konnte nicht geschrieben werden. Details stehen in der Entwicklerkonsole.",
 	"modal.reset_overrides.title": "Lokale Notizbreiten zur\u00FCcksetzen",
 	"modal.reset_overrides.desc": "{{count}} Notiz(en) haben eine lokal gespeicherte Breite. W\u00E4hle aus, welche entfernt werden sollen.",
 	"modal.reset_overrides.search_placeholder": "Nach Pfad filtern\u2026",
@@ -239,6 +250,11 @@ const de: Translations = {
 	"settings.live_preview.name": "Live-Vorschau",
 	"settings.live_preview.desc": "Codeblock-Breite im Live-Vorschaumodus anwenden.",
 
+	// Settings — Diagnostics
+	"settings.diagnostics.name": "Diagnose",
+	"settings.diagnostics.desc": "Erstellt einen anonymisierten Diagnosebericht für einen Fehlerbericht auf GitHub. Er enthält nie Notizinhalte, Dateinamen oder Pfade.",
+	"settings.diagnostics.button": "Diagnosebericht erstellen",
+
 	// Plugin info
 	"plugin.loaded": "{{name}} v{{version}} geladen!",
 	"plugin.unloaded": "{{name}} v{{version}} entladen!",
@@ -261,12 +277,15 @@ const ru: Translations = {
 	"command.change_all_width.name": "Изменить ширину для всех заметок",
 	"command.change_all_width.modal_title": "Введите ширину для всех заметок",
 	"command.apply_pill_preset.name": "Применить набор кнопок {{index}}",
+	"command.create_diagnostics.name": "Создать диагностический отчёт",
 
 	// Notices
 	"notice.slider_too_large": "Значение ползунка слишком большое!",
 	"notice.local_overrides_cleared": "Удалено локальных ширин: {{count}}.",
 	"notice.local_overrides_empty": "Нет локальных ширин для сброса.",
 	"notice.yaml_key_forbidden": "Этот YAML-ключ запрещён.",
+	"notice.diagnostics_created": "Диагностический отчёт скопирован в буфер обмена и сохранён в папке плагина. Прикрепите его к своему issue на GitHub.",
+	"notice.diagnostics_failed": "Не удалось записать диагностический отчёт. Подробности в консоли разработчика.",
 	"modal.reset_overrides.title": "Сброс локальных ширин заметок",
 	"modal.reset_overrides.desc": "У {{count}} заметок(и) есть локально сохранённая ширина. Выберите, какие удалить.",
 	"modal.reset_overrides.search_placeholder": "Фильтр по пути…",
@@ -338,6 +357,11 @@ const ru: Translations = {
 	"settings.source_mode.desc": "Применять ширину блоков кода в режиме просмотра исходного кода.",
 	"settings.live_preview.name": "В режиме динамического просмотра",
 	"settings.live_preview.desc": "Применять ширину блоков кода в режиме динамического просмотра.",
+
+	// Settings — Diagnostics
+	"settings.diagnostics.name": "Диагностика",
+	"settings.diagnostics.desc": "Создаёт анонимный диагностический отчёт для отчёта об ошибке на GitHub. Он никогда не содержит содержимое заметок, имена файлов или пути.",
+	"settings.diagnostics.button": "Создать диагностический отчёт",
 
 	// Plugin info
 	"plugin.loaded": "{{name}} v{{version}} загружен!",

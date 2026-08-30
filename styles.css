@@ -1,3 +1,12 @@
+/* Sentinels: let the diagnostics report confirm styles.css is loaded and detect
+   a stale copy, via getComputedStyle(document.body).getPropertyValue(...).
+   --cnw-styles-version MUST be kept in sync with manifest.json "version"; the
+   report compares it to the plugin version and flags a mismatch as stale. */
+:root {
+	--cnw-styles-loaded: 1;
+	--cnw-styles-version: "3.1.0";
+}
+
 /* Prevent CSS transitions on width-related elements during tab switch.
    Uses a specific selector chain so we do not need !important; the plugin
    only touches leaves it has tagged with data-cnw-id. */
@@ -7,17 +16,15 @@
 	transition: max-width 0s;
 }
 
-/* Feed the plugin's per-leaf CSS variable into Obsidian's --file-line-width.
-   `!important` is deliberate here: Obsidian's own defaults for --file-line-width
-   sit on selectors like `.markdown-source-view.mod-cm6.is-readable-line-width`
-   with specificity (0,3,0), which wins over our (0,2,1). Themes may also set
-   --file-line-width with !important. Without the marker the plugin silently
-   loses to those rules. Missing --cnw-note-width falls back to whatever
-   Obsidian would have used. */
-.workspace-leaf-content[data-cnw-id] .markdown-source-view,
-.workspace-leaf-content[data-cnw-id] .markdown-preview-view {
-	--file-line-width: var(--cnw-note-width, var(--file-line-width)) !important;
-}
+/* The width itself is no longer bridged through a stylesheet rule. The plugin
+   writes `--file-line-width` inline WITH priority `!important` onto each leaf's
+   `.markdown-source-view` and `.markdown-preview-view` (see NoteWidthManager),
+   restoring the 2.4.1 behaviour. An inline `!important` declaration beats every
+   selector-based rule, including a theme or snippet that marks
+   `--file-line-width` `!important`, and the width no longer depends on this
+   stylesheet being loaded. The only thing that can still win is a rule that sets
+   `max-width` directly on the sizer with `!important` (bypassing the variable);
+   the diagnostics report identifies exactly that rule. */
 
 /* Code block width. Modes (reading / source / live preview) are global settings,
    so they are represented as body-scoped classes toggled once per settings

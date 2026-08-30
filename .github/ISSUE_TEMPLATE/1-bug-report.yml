@@ -15,6 +15,8 @@ body:
           required: true
         - label: I have **"Readable line length"** enabled in Obsidian (`Settings > Editor > Readable line length`).
           required: true
+        - label: I have generated a diagnostics report (see the field below) and pasted it into this issue.
+          required: true
   - type: textarea
     id: describe-the-bug
     attributes:
@@ -45,6 +47,17 @@ body:
       placeholder: "The behavior that I expect to see is [...]"
     validations:
       required: true
+  - type: textarea
+    id: diagnostics-report
+    attributes:
+      label: Diagnostics report
+      description: |
+        Run **Create diagnostics report** from the command palette (`Ctrl/Cmd+P` → search "Custom Note Width"), or click the button under `Settings → Custom Note Width → Diagnostics`. The report is copied to your clipboard and saved to the plugin folder, and the folder opens with the file highlighted. Paste the JSON here, or attach `diagnostics.json`.
+
+        It is anonymised: no note contents, file names, vault name or paths are included.
+      render: json
+    validations:
+      required: true
   - type: dropdown
     id: frequency
     attributes:
@@ -60,37 +73,38 @@ body:
     id: obsidian-version
     attributes:
       label: Obsidian version
-      description: "Found in `Settings > General` (top of the page)"
-      placeholder: "e.g. 1.12.4"
+      description: "Found in `Settings > General` (top of the page). Optional: also included in the diagnostics report."
+      placeholder: "e.g. 1.13.7"
     validations:
-      required: true
+      required: false
   - type: input
     id: plugin-version
     attributes:
       label: Plugin version
-      description: "Found in `Settings > Community plugins`, listed next to \"Custom Note Width\" under installed plugins"
-      placeholder: "e.g. 1.0.2"
+      description: "Found in `Settings > Community plugins`, listed next to \"Custom Note Width\". Optional: also included in the diagnostics report."
+      placeholder: "e.g. 3.1.0"
     validations:
-      required: true
+      required: false
   - type: input
     id: theme
     attributes:
       label: Theme
-      description: "Found in `Settings > Appearance > Themes` (shows the currently active theme). Write \"Default\" if you haven't changed it."
+      description: "Found in `Settings > Appearance > Themes`. Write \"Default\" if you haven't changed it. Optional: also included in the diagnostics report."
       placeholder: "e.g. Default, Things, Minimal"
     validations:
-      required: true
+      required: false
   - type: dropdown
     id: os
     attributes:
       label: Operating system
+      description: "Optional: also included in the diagnostics report."
       options:
         - Windows
         - macOS
         - Linux
       default: 0
     validations:
-      required: true
+      required: false
   - type: textarea
     id: screenshots
     attributes:

@@ -10,6 +10,8 @@ import UIElementCreator from "src/ui/uiElementCreator";
 import { getLoadedMessage, getUnloadedMessage } from "src/utility/constants";
 import UIManager from "./ui/uiManager";
 import YamlFrontMatterProcessor from "src/note/yamlFrontMatterProcessor";
+import DiagnosticsLog from "src/diagnostics/diagnosticsLog";
+import DiagnosticsManager from "src/diagnostics/diagnosticsManager";
 
 /**
  * The main plugin class for CustomNoteWidth.
@@ -27,6 +29,12 @@ export default class CustomNoteWidth extends Plugin
 	settingsTab!: CustomNoteWidthSettingTab;
 	uiManager!: UIManager;
 	yamlFrontMatterProcessor!: YamlFrontMatterProcessor;
+	diagnosticsLog!: DiagnosticsLog;
+	diagnostics!: DiagnosticsManager;
+	/** Pending startup re-apply frame, cancelled on unload (0 = none). */
+	private startupRaf: number = 0;
+	/** Set in onunload so a late onLayoutReady/rAF callback cannot re-apply after destroy. */
+	private unloaded: boolean = false;
 
 	/**
 	 * This function is called when the plugin is loaded.
@@ -38,6 +46,9 @@ export default class CustomNoteWidth extends Plugin
 		// Create settings manager to load settings
 		this.settingsManager = new SettingsManager(this);
 		await this.settingsManager.loadSettings();
+
+		// Create the diagnostics log early so every manager can record into it
+		this.diagnosticsLog = new DiagnosticsLog();
 
 		// Create the settings tab for "Custom Note Width" in Obsidian settings
 		this.settingsTab = new CustomNoteWidthSettingTab(this.app, this);
@@ -64,18 +75,60 @@ export default class CustomNoteWidth extends Plugin
 		// Create ui creator
 		this.uiElementCreator = new UIElementCreator(this);
 
+		// Create the diagnostics report builder (reads settings + DOM on demand)
+		this.diagnostics = new DiagnosticsManager(this.app, this, this.diagnosticsLog);
+
+		// Capture uncaught errors / rejections that point at this plugin, so the
+		// diagnostics report carries them. registerDomEvent removes these on unload.
+		this.registerDomEvent(window, "error", (evt: ErrorEvent) =>
+		{
+			const errorName = evt.error instanceof Error ? evt.error.name : "Error";
+			const stack = evt.error instanceof Error ? evt.error.stack : undefined;
+			this.diagnostics.captureError("error", errorName, evt.message, stack, evt.filename);
+		});
+		this.registerDomEvent(window, "unhandledrejection", (evt: PromiseRejectionEvent) =>
+		{
+			const reason: unknown = evt.reason;
+			let errorName = "UnhandledRejection";
+			let message = "non-error rejection";
+			let stack: string | undefined;
+			if (reason instanceof Error)
+			{
+				errorName = reason.name;
+				message = reason.message;
+				stack = reason.stack;
+			}
+			else if (typeof reason === "string")
+			{
+				message = reason;
+			}
+			this.diagnostics.captureError("unhandledrejection", errorName, message, stack);
+		});
+
 		// Create the commands
 		this.commandsManager = new CommandsManager(this);
 
 		// Register the event handlers
 		this.eventHandler.registerEventHandlers();
 
-		// Apply the editor width at startup
-		const defaultWv = {
-			value: this.settingsManager.getDefaultWidth(),
-			unit: this.settingsManager.getDefaultWidthUnit(),
-		};
-		this.noteWidthManager.updateNoteWidthEditorStyle(defaultWv);
+		// Apply the resolved per-note width for the active leaf once the layout
+		// is ready. Resolving (instead of forcing the global default) fixes the
+		// in-place-update glitch: after disabling and re-enabling the plugin with
+		// a note open, `active-leaf-change` does not fire again, so the note used
+		// to show the default width until reopened. `onLayoutReady` runs almost
+		// immediately when the layout already exists (the re-enable case) and
+		// after layout on a cold start.
+		this.app.workspace.onLayoutReady(() =>
+		{
+			if (this.unloaded) return;
+			this.noteWidthManager.applyWidthForLeaf();
+			this.startupRaf = window.requestAnimationFrame(() =>
+			{
+				this.startupRaf = 0;
+				if (this.unloaded) return;
+				this.noteWidthManager.applyWidthForLeaf();
+			});
+		});
 
 		// Plugin loaded
 		console.debug(getLoadedMessage(this.manifest.version));
@@ -89,6 +142,15 @@ export default class CustomNoteWidth extends Plugin
 	 */
 	onunload(): void
 	{
+		// Guard + cancel a pending startup re-apply so a fast enable/disable cannot
+		// re-apply the inline width after the manager has been destroyed.
+		this.unloaded = true;
+		if (this.startupRaf)
+		{
+			window.cancelAnimationFrame(this.startupRaf);
+			this.startupRaf = 0;
+		}
+
 		this.wrapperManager.removeWrapper();
 		this.noteWidthManager.destroy();
 

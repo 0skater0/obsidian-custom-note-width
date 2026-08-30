@@ -2,21 +2,28 @@ import { App, MarkdownView, TFile, WorkspaceLeaf } from "obsidian";
 import CustomNoteWidth from "src/main";
 import ProgressBarModal from "src/modals/progressBarModal";
 import { t } from "src/i18n/i18n";
-import { WidthValue, parseWidthValue, widthValueToCss, formatWidthForYaml } from "src/utility/config";
-import { getActiveEditorDiv, getActiveMarkdownView, getEditorDivForView, validateWidthValue } from "src/utility/utilities";
+import { WidthValue, WidthSource, parseWidthValue, widthValueToCss, formatWidthForYaml } from "src/utility/config";
+import { getActiveEditorDiv, getActiveMarkdownView, getEditorDivForView, pixelsDiffer, validateWidthValue } from "src/utility/utilities";
+import { ApplyAbortReason } from "src/diagnostics/diagnosticsLog";
+
+/** Editor view elements the plugin writes `--file-line-width` onto, per leaf. */
+const VIEW_SELECTORS = [".markdown-source-view", ".markdown-preview-view"] as const;
 
 /**
  * Manages the note width functionalities.
  *
- * The plugin's per-leaf width flows through two custom CSS variables that
- * `styles.css` picks up:
- *   - `--cnw-note-width`         drives `--file-line-width` on the editor
- *   - `--cnw-code-block-width`   drives code block width (when enabled)
+ * The width is applied by writing Obsidian's `--file-line-width` inline onto the
+ * leaf's `.markdown-source-view` and `.markdown-preview-view` elements. An inline
+ * declaration beats Obsidian's own selector-based defaults without `!important`,
+ * and, unlike the previous stylesheet bridge, does not depend on `styles.css`
+ * being loaded and current. The leaf also carries two reference variables:
+ *   - `--cnw-note-width`         the width the plugin intends (mirrors the inline value)
+ *   - `--cnw-code-block-width`   drives code block width (when enabled), via styles.css
  *
- * Both variables are set inline on the leaf's `containerEl` via `setCssProps`,
- * scoped by a `data-cnw-id` attribute the plugin assigns lazily on first use.
- * Code block modes (reading / source / live preview) are global settings and
- * are represented as body-scoped classes so one toggle affects every open leaf.
+ * All three are set on the leaf via `setCssProps`, scoped by a `data-cnw-id`
+ * attribute the plugin assigns lazily on first use. Code block modes (reading /
+ * source / live preview) are global settings represented as body-scoped classes
+ * so one toggle affects every open leaf.
  *
  * Width is resolved synchronously from Obsidian's metadataCache (YAML-only).
  */
@@ -29,6 +36,8 @@ export default class NoteWidthManager
 	/** Every containerEl the plugin has tagged with `data-cnw-id`, so cleanup
 	 *  can find them without a global DOM query. */
 	private taggedLeaves: Set<HTMLElement> = new Set();
+	/** Pending rAF handle for the debounced consistency check (0 = none). */
+	private consistencyRaf: number = 0;
 
 	/**
 	 * Constructs a new NoteWidthManager instance.
@@ -122,6 +131,39 @@ export default class NoteWidthManager
 	}
 
 	/**
+	 * Reports which store supplied the effective width for a file, mirroring the
+	 * precedence in {@link resolveWidthForFile}. Used only by the diagnostics report.
+	 * @param file - The file to inspect.
+	 * @returns The origin of the width that {@link resolveWidthForFile} would return.
+	 */
+	public getWidthSource(file: TFile): WidthSource
+	{
+		if (!this.plugin.settingsManager.getEnablePerNoteWidth())
+		{
+			return 'default';
+		}
+
+		const mode = this.plugin.settingsManager.getPerNoteMode();
+		if (mode === 'local' && this.plugin.settingsManager.getLocalOverrides()[file.path])
+		{
+			return 'local';
+		}
+		if (mode === 'view-only' && this.viewOnlyWidths.get(file.path))
+		{
+			return 'view-only';
+		}
+
+		const yamlKey = this.plugin.settingsManager.getYAMLKey();
+		const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+		if (frontmatter && parseWidthValue(frontmatter[yamlKey], this.plugin.settingsManager.getDefaultWidthUnit()))
+		{
+			return 'frontmatter';
+		}
+
+		return 'default';
+	}
+
+	/**
 	 * Synchronously applies the correct width for a leaf by resolving
 	 * the width from metadata and calculating the CSS value.
 	 * Used on tab switch, resize, and layout change events.
@@ -134,21 +176,31 @@ export default class NoteWidthManager
 			? leaf.view
 			: getActiveMarkdownView(this.app);
 
-		if (!view || !view.file) return;
+		if (!view || !view.file)
+		{
+			this.recordApply(false, "no-view");
+			return;
+		}
 
 		const wv = this.resolveWidthForFile(view.file);
 		const editorMode = view.getMode();
 		const editorDiv = getEditorDivForView(view, editorMode);
-		if (!editorDiv) return;
+		if (!editorDiv)
+		{
+			this.recordApply(false, "no-editor-element");
+			return;
+		}
 
 		const cssValue = widthValueToCss(wv, editorDiv);
-		if (!cssValue) return;
+		if (!cssValue)
+		{
+			this.recordApply(false, "no-char-width");
+			return;
+		}
 
-		this.getLeafId(view);
-		this.setLeafWidthVars(view.containerEl, cssValue, this.computeCodeBlockCss(editorDiv));
-
-		// Keep body-scoped mode classes in sync (idempotent).
-		this.applyCodeBlockModes();
+		this.applyWidthToLeaf(view, cssValue, this.computeCodeBlockCss(editorDiv));
+		this.recordApply(true, null);
+		this.scheduleConsistencyCheck(view);
 
 		// Update slider UI to reflect the note's width and unit
 		this.plugin.uiManager.setSliderAndTextField(wv.value);
@@ -210,8 +262,10 @@ export default class NoteWidthManager
 	}
 
 	/**
-	 * Removes all custom width styles from every tagged leaf and drops the
-	 * `data-cnw-id` attribute so the shared stylesheet rules stop matching.
+	 * Removes all custom width styles from every tagged leaf: clears the inline
+	 * `--file-line-width` on its editor views, the reference variables on the
+	 * container, and drops the `data-cnw-id` attribute so the code-block rules
+	 * stop matching.
 	 */
 	public removeNoteWidthEditorStyle(): void
 	{
@@ -222,6 +276,7 @@ export default class NoteWidthManager
 				"--cnw-note-width": "",
 				"--cnw-code-block-width": "",
 			});
+			this.setFileLineWidthOnViews(el, "");
 		}
 		this.taggedLeaves.clear();
 	}
@@ -231,6 +286,11 @@ export default class NoteWidthManager
 	 */
 	public destroy(): void
 	{
+		if (this.consistencyRaf)
+		{
+			window.cancelAnimationFrame(this.consistencyRaf);
+			this.consistencyRaf = 0;
+		}
 		this.removeNoteWidthEditorStyle();
 		this.viewOnlyWidths.clear();
 		document.body.removeClass("cnw-cb-reading");
@@ -270,7 +330,24 @@ export default class NoteWidthManager
 	}
 
 	/**
-	 * Writes both custom CSS variables in one call. Passing `null` for the
+	 * Applies a resolved width to a leaf: tags it, writes the reference variables
+	 * on the container, writes `--file-line-width` inline onto its editor views,
+	 * and keeps the body-scoped code-block mode classes in sync.
+	 * @param view - The markdown view whose leaf receives the width.
+	 * @param noteWidthCss - The CSS width value (e.g. "700px" or "80ch").
+	 * @param codeBlockCss - The value for `--cnw-code-block-width`, or null to unset.
+	 */
+	private applyWidthToLeaf(view: MarkdownView, noteWidthCss: string, codeBlockCss: string | null): void
+	{
+		this.getLeafId(view);
+		this.setLeafWidthVars(view.containerEl, noteWidthCss, codeBlockCss);
+		this.setFileLineWidthOnViews(view.containerEl, noteWidthCss);
+		// A settings change may have flipped a mode flag; keep the body classes in sync.
+		this.applyCodeBlockModes();
+	}
+
+	/**
+	 * Writes both reference CSS variables in one call. Passing `null` for the
 	 * code block value unsets it so a leaf does not keep a stale width after
 	 * the feature is turned off.
 	 * @param el - The container element that owns the variables.
@@ -286,6 +363,97 @@ export default class NoteWidthManager
 	}
 
 	/**
+	 * Writes `--file-line-width` inline onto the leaf's editor view elements
+	 * (source and preview), with priority `important`, or clears it when the
+	 * value is empty. This is the declaration that drives the visible width.
+	 *
+	 * The `important` priority restores the 2.4.1 behaviour: an inline
+	 * `!important` declaration beats even a theme or snippet that marks
+	 * `--file-line-width` `!important` on a selector (inline wins over selectors
+	 * in the cascade). `setCssProps` cannot set a priority, so this goes through
+	 * `style.setProperty` directly with a dynamic value (not a static literal,
+	 * so the `no-static-styles-assignment` rule does not apply).
+	 * @param container - The leaf's container element.
+	 * @param cssValue - The width value, or "" to clear it.
+	 */
+	private setFileLineWidthOnViews(container: HTMLElement, cssValue: string): void
+	{
+		for (const selector of VIEW_SELECTORS)
+		{
+			const el = container.querySelector<HTMLElement>(selector);
+			if (!el)
+			{
+				continue;
+			}
+			if (cssValue === "")
+			{
+				el.style.removeProperty("--file-line-width");
+			}
+			else
+			{
+				el.style.setProperty("--file-line-width", cssValue, "important");
+			}
+		}
+	}
+
+	/** Records the outcome of a width apply in the diagnostics log. */
+	private recordApply(completed: boolean, abortReason: ApplyAbortReason): void
+	{
+		this.plugin.diagnosticsLog.recordApply({ completed, abortReason });
+	}
+
+	/**
+	 * Schedules a debounced consistency check on the next animation frame. The
+	 * check only reads computed styles (never re-applies), so it cannot loop.
+	 *
+	 * A single shared frame handle is intentional: the sync apply and its rAF
+	 * re-apply (and rapid successive applies) all target the same leaf, so the
+	 * previous pending check is cancelled and only one check runs per frame,
+	 * against the final applied state. That is the state worth verifying.
+	 * @param view - The view to check after the browser has laid it out.
+	 */
+	private scheduleConsistencyCheck(view: MarkdownView): void
+	{
+		if (this.consistencyRaf)
+		{
+			window.cancelAnimationFrame(this.consistencyRaf);
+		}
+		this.consistencyRaf = window.requestAnimationFrame(() =>
+		{
+			this.consistencyRaf = 0;
+			this.checkConsistency(view);
+		});
+	}
+
+	/**
+	 * Compares the `--file-line-width` the plugin set with the `max-width` that
+	 * actually computed on the sizer. A divergence (beyond ~1px) means a theme or
+	 * snippet is overriding the width; it is logged to the ring buffer for the
+	 * diagnostics report. No Notice is shown.
+	 * @param view - The view to check.
+	 */
+	private checkConsistency(view: MarkdownView): void
+	{
+		const mode = view.getMode();
+		const container = view.containerEl;
+		const viewEl = mode === "preview"
+			? container.querySelector<HTMLElement>(".markdown-preview-view")
+			: container.querySelector<HTMLElement>(".markdown-source-view");
+		const sizer = mode === "preview"
+			? container.querySelector<HTMLElement>(".markdown-preview-sizer")
+			: container.querySelector<HTMLElement>(".cm-sizer");
+		if (!viewEl || !sizer)
+		{
+			return;
+		}
+
+		const setWidth = window.getComputedStyle(viewEl).getPropertyValue("--file-line-width").trim();
+		const actualWidth = window.getComputedStyle(sizer).maxWidth.trim();
+		const mismatch = pixelsDiffer(setWidth, actualWidth);
+		this.plugin.diagnosticsLog.recordConsistency(mismatch, setWidth || "(unset)", actualWidth || "(unset)");
+	}
+
+	/**
 	 * Updates the custom editor style with a new WidthValue on the active view.
 	 * Used for user-driven width changes (slider, commands).
 	 * @param wv - The WidthValue to be applied.
@@ -293,25 +461,31 @@ export default class NoteWidthManager
 	public updateNoteWidthEditorStyle(wv: WidthValue): void
 	{
 		const view = getActiveMarkdownView(this.app);
-		if (!view) return;
+		if (!view)
+		{
+			this.recordApply(false, "no-view");
+			return;
+		}
 
 		const editorMode = view.getMode();
 		const editorDiv = getActiveEditorDiv(this.app, editorMode);
-		if (!editorDiv) return;
+		if (!editorDiv)
+		{
+			this.recordApply(false, "no-editor-element");
+			return;
+		}
 
 		const cssValue = widthValueToCss(wv, editorDiv);
 		if (!cssValue)
 		{
 			console.error("Something went wrong while changing the note width!", new Error().stack);
+			this.recordApply(false, "no-char-width");
 			return;
 		}
 
-		this.getLeafId(view);
-		this.setLeafWidthVars(view.containerEl, cssValue, this.computeCodeBlockCss(editorDiv));
-
-		// A settings change may have flipped a mode flag; keep the body classes
-		// in sync so the freshly applied width is visible in the right editor mode.
-		this.applyCodeBlockModes();
+		this.applyWidthToLeaf(view, cssValue, this.computeCodeBlockCss(editorDiv));
+		this.recordApply(true, null);
+		this.scheduleConsistencyCheck(view);
 	}
 
 	/**

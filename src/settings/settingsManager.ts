@@ -94,7 +94,7 @@ export default class SettingsManager
 		},
 		enableCodeBlockWidth: false,
 		codeBlockWidth: 800,
-		codeBlockWidthUnit: 'px' as WidthUnit,
+		codeBlockWidthUnit: 'px',
 		codeBlockWidthModes: { reading: true, source: true, livePreview: true },
 		controlMode: 'slider',
 		pillsPresets: [...DEFAULT_PILLS_PRESETS],
@@ -421,7 +421,7 @@ export default class SettingsManager
 			loaded.pillsPresets = [...DEFAULT_PILLS_PRESETS];
 		}
 
-		this.settings = Object.assign({}, this.DEFAULT_SETTINGS, loaded) as CustomNoteWidthSettings;
+		this.settings = Object.assign({}, this.DEFAULT_SETTINGS, loaded);
 
 		// Apply locale override from saved language setting
 		setLocaleOverride(this.settings.language === "auto" ? null : this.settings.language);
